@@ -1568,7 +1568,35 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerToastBanner(randCode);
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Firestore write failed for simulation, falling back to local simulation:", err);
+      const mockId = 'mock_' + Math.random().toString(36).substring(2, 6);
+      if (isCoop) {
+        const coopQuests = QUESTS.filter(q => getQuestMaxPartySize(q) > 1);
+        const randomQuest = coopQuests[Math.floor(Math.random() * coopQuests.length)];
+        notificationsList.push({
+          id: mockId,
+          type: 'coop_invite',
+          senderCode: randCode,
+          senderUid: 'mock_uid',
+          questId: randomQuest.id,
+          questTitle: randomQuest.title,
+          timestamp: Date.now(),
+          read: false
+        });
+        playSound('notification');
+        triggerToastBanner(`${randCode} (Co-op Invite)`);
+      } else {
+        notificationsList.push({
+          id: mockId,
+          type: 'friend_request',
+          senderCode: randCode,
+          timestamp: Date.now(),
+          read: false
+        });
+        playSound('notification');
+        triggerToastBanner(randCode);
+      }
+      updateNotificationsUI();
     }
   });
 
@@ -1641,10 +1669,19 @@ document.addEventListener('DOMContentLoaded', () => {
         playSound('toggleOff');
       }
       
-      // Delete notification from Firestore
-      await deleteDoc(doc(db, 'users', currentUser.uid, 'notifications', notiId));
+      if (notiId && !notiId.startsWith('mock_')) {
+        // Delete notification from Firestore
+        await deleteDoc(doc(db, 'users', currentUser.uid, 'notifications', notiId));
+      } else {
+        // Local removal
+        notificationsList = notificationsList.filter(n => n.id !== notiId);
+        updateNotificationsUI();
+      }
     } catch (err) {
       console.error(err);
+      // Fallback local removal on error
+      notificationsList = notificationsList.filter(n => n.id !== notiId);
+      updateNotificationsUI();
     }
   });
 
@@ -1817,6 +1854,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (user) {
       currentUser = user;
       document.getElementById('view-auth').classList.remove('visible');
+      
+      // Fast client-side fallback for friendCode in case Firestore is unreachable
+      if (!friendCode) {
+        friendCode = localStorage.getItem('questmax_friendCode') || 'QM-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+        updateFriendsUI();
+      }
       
       // Subscribe to real-time user database
       unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), async (snapshot) => {
