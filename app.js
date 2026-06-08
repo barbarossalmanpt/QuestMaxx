@@ -1539,63 +1539,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!currentUser) return;
     
     const randCode = 'QM-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-    const isCoop = Math.random() > 0.5;
     
     try {
-      if (isCoop) {
-        const coopQuests = QUESTS.filter(q => getQuestMaxPartySize(q) > 1);
-        const randomQuest = coopQuests[Math.floor(Math.random() * coopQuests.length)];
-        
-        await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
-          type: 'coop_invite',
-          senderCode: randCode,
-          senderUid: 'mock_uid',
-          questId: randomQuest.id,
-          questTitle: randomQuest.title,
-          timestamp: Date.now(),
-          read: false
-        });
-        playSound('notification');
-        triggerToastBanner(`${randCode} (Co-op Invite)`);
-      } else {
-        await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
-          type: 'friend_request',
-          senderCode: randCode,
-          timestamp: Date.now(),
-          read: false
-        });
-        playSound('notification');
-        triggerToastBanner(randCode);
-      }
+      await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
+        type: 'friend_request',
+        senderCode: randCode,
+        timestamp: Date.now(),
+        read: false
+      });
+      playSound('notification');
+      triggerToastBanner(randCode);
     } catch (err) {
       console.warn("Firestore write failed for simulation, falling back to local simulation:", err);
       const mockId = 'mock_' + Math.random().toString(36).substring(2, 6);
-      if (isCoop) {
-        const coopQuests = QUESTS.filter(q => getQuestMaxPartySize(q) > 1);
-        const randomQuest = coopQuests[Math.floor(Math.random() * coopQuests.length)];
-        notificationsList.push({
-          id: mockId,
-          type: 'coop_invite',
-          senderCode: randCode,
-          senderUid: 'mock_uid',
-          questId: randomQuest.id,
-          questTitle: randomQuest.title,
-          timestamp: Date.now(),
-          read: false
-        });
-        playSound('notification');
-        triggerToastBanner(`${randCode} (Co-op Invite)`);
-      } else {
-        notificationsList.push({
-          id: mockId,
-          type: 'friend_request',
-          senderCode: randCode,
-          timestamp: Date.now(),
-          read: false
-        });
-        playSound('notification');
-        triggerToastBanner(randCode);
-      }
+      notificationsList.push({
+        id: mockId,
+        type: 'friend_request',
+        senderCode: randCode,
+        timestamp: Date.now(),
+        read: false
+      });
+      playSound('notification');
+      triggerToastBanner(randCode);
       updateNotificationsUI();
     }
   });
