@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QuestMax</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Auth Screen (blocks user interaction if logged out) -->
+  <div id="view-auth" class="choice-overlay visible">
+    <div class="choice-modal auth-modal-content">
+      <h1 class="app-title" style="font-size: 1.6rem; margin-bottom: 10px;">⚔️ QUESTMAX ⚔️</h1>
+      <h2 class="choice-modal-title" style="margin-bottom: 15px;">HERO LOGIN / REGISTER</h2>
+      <div style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px;">
+        <input type="email" id="auth-email" placeholder="EMAIL ADDRESS" class="retro-input" style="width: 100%;">
+        <input type="password" id="auth-password" placeholder="PASSWORD" class="retro-input" style="width: 100%;">
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button id="btn-auth-signin" class="stone-button success-btn" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">SIGN IN</button>
+          <button id="btn-auth-signup" class="stone-button" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">REGISTER</button>
+        </div>
+        <!-- Google Sign In Button -->
+        <button id="btn-auth-google" class="stone-button" style="margin-top: 5px; padding: 10px 0; font-size: 0.75rem; width: 100%; border-color: #4285F4; color: #4285F4; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🌐</span> SIGN IN WITH GOOGLE
+        </button>
+        <p id="auth-error-msg" class="empty-msg hidden" style="color: #e74c3c; text-align: center; margin-top: 10px; font-size: 1rem;"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Header Buttons -->
+  <div class="top-header-buttons">
+    <button id="btn-friends-list" class="header-btn" aria-label="Friends List" title="Friends">
+      <span class="icon">👥</span>
+    </button>
+    <button id="btn-notification" class="header-btn" aria-label="Notifications" title="Notifications">
+      <span class="icon">🔔</span>
+      <span id="noti-badge" class="badge hidden"></span>
+    </button>
+    <button id="mute-toggle" class="header-btn mute-btn" aria-label="Toggle Sound" title="Mute">
+      <span class="icon">🔊</span>
+    </button>
+  </div>
+
+  <!-- Particle Background Container -->
+  <div id="particles-container"></div>
+
+  <!-- Choice Modal (appears after START QUEST) -->
+  <div id="choice-overlay" class="choice-overlay">
+    <div class="choice-modal">
+      <h2 class="choice-modal-title">CHOOSE YOUR PATH</h2>
+      <div class="choice-options">
+        <button id="choice-board" class="choice-card">
+          <span class="slot-icon">📜</span>
+          <span class="slot-label">QUEST BOARD</span>
+        </button>
+        <button id="choice-wizard" class="choice-card">
+          <span class="slot-icon">🔮</span>
+          <span class="slot-label">QUEST WIZARD</span>
+        </button>
+      </div>
+      <button id="choice-close" class="choice-close-btn">✕ CANCEL</button>
+    </div>
+  </div>
+
+  <!-- Notifications Modal (Overlay) -->
+  <div id="notifications-modal" class="choice-overlay">
+    <div class="choice-modal friends-modal-content">
+      <h2 class="choice-modal-title">NOTIFICATIONS</h2>
+      
+      <div class="friends-list-container">
+        <div id="notifications-list" class="friends-list">
+          <p class="empty-msg">No new notifications.</p>
+        </div>
+      </div>
+
+      <button id="notifications-modal-close" class="choice-close-btn">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Friends Modal (Overlay) -->
+  <div id="friends-modal" class="choice-overlay">
+    <div class="choice-modal friends-modal-content">
+      <h2 class="choice-modal-title">FRIENDS</h2>
+      
+      <div class="friends-top-bar">
+        <div class="friend-code-display">
+          <span>YOUR CODE:</span>
+          <strong id="my-friend-code">QM-XXXX</strong>
+        </div>
+        <div class="add-friend-section">
+          <input type="text" id="input-add-friend" placeholder="ENTER CODE" maxlength="7" class="retro-input small-input">
+          <button id="btn-add-friend" class="stone-button small-btn">ADD</button>
+        </div>
+      </div>
+
+      <div class="friends-list-container">
+        <div id="friends-list" class="friends-list">
+          <p class="empty-msg">No friends yet. Add some using their code!</p>
+        </div>
+      </div>
+
+      <div class="friends-debug-actions">
+        <button id="btn-simulate-request" class="stone-button small-btn debug-btn">Simulate Incoming Request</button>
+      </div>
+
+      <button id="friends-modal-close" class="choice-close-btn">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Quest Codex Modal (Overlay) -->
+  <div id="quest-codex-modal" class="choice-overlay">
+    <div class="choice-modal quest-codex-content">
+      <div id="codex-rarity-banner" class="codex-rarity-banner" data-rarity="chill">
+        <span id="codex-quest-icon" class="codex-quest-icon">🌿</span>
+        <h2 id="codex-quest-title" class="codex-quest-title">QUEST TITLE</h2>
+      </div>
+      
+      <div class="codex-body">
+        <p id="codex-quest-desc" class="codex-quest-desc">Quest description goes here.</p>
+        
+        <div class="codex-stats">
+          <div class="codex-stat-row">
+            <span>DIFFICULTY:</span>
+            <span id="codex-difficulty-skulls">⚔️</span>
+          </div>
+          <div class="codex-stat-row">
+            <span>BASE REWARD:</span>
+            <span id="codex-base-xp">50 XP</span>
+          </div>
+          <div class="codex-stat-row hidden" id="codex-bonus-row">
+            <span class="coop-text">FELLOWSHIP BONUS:</span>
+            <span id="codex-bonus-xp" class="coop-text">+12 XP</span>
+          </div>
+        </div>
+
+        <!-- Xbox 360 Ring of Fellowship Connection Visual -->
+        <div class="xbox-ring-container">
+          <div class="xbox-ring">
+            <svg class="ring-svg" viewBox="0 0 100 100">
+              <!-- Quadrant 1 (Top-Left) -->
+              <path class="quadrant q-tl" d="M 45 45 L 45 5 A 40 40 0 0 0 5 45 Z" />
+              <!-- Quadrant 2 (Top-Right) -->
+              <path class="quadrant q-tr" d="M 55 45 L 95 45 A 40 40 0 0 0 55 5 Z" />
+              <!-- Quadrant 3 (Bottom-Right) -->
+              <path class="quadrant q-br" d="M 55 55 L 55 95 A 40 40 0 0 0 95 55 Z" />
+              <!-- Quadrant 4 (Bottom-Left) -->
+              <path class="quadrant q-bl" d="M 45 55 L 5 55 A 40 40 0 0 0 45 95 Z" />
+            </svg>
+            <div class="ring-center">
+              <span id="ring-party-size">1/2</span>
+            </div>
+          </div>
+          <div class="xbox-party-list" id="xbox-party-list">
+            <!-- Connected adventurers list -->
+          </div>
+        </div>
+      </div>
+
+      <div class="codex-actions">
+        <button id="btn-codex-action" class="stone-button success-btn">ACCEPT QUEST</button>
+        <button id="btn-codex-invite" class="stone-button small-btn hidden">INVITE PARTY</button>
+      </div>
+      <button id="quest-codex-close" class="choice-close-btn">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Friend Profile Modal (Overlay) -->
+  <div id="friend-profile-modal" class="choice-overlay">
+    <div class="choice-modal friends-modal-content">
+      <h2 class="choice-modal-title">HERO PROFILE</h2>
+      
+      <div class="profile-card">
+        <div class="avatar-container">
+          <div class="avatar-frame">
+            <img id="friend-profile-avatar" src="" alt="Avatar" class="avatar-img hidden">
+            <span id="friend-profile-avatar-placeholder" class="avatar-placeholder">🛡️</span>
+          </div>
+          <span id="friend-profile-class" class="friend-class-title">LEVEL 5 MAGE</span>
+        </div>
+
+        <div class="nickname-container">
+          <span id="friend-profile-name" class="friend-profile-name">FRIEND_NAME</span>
+          <span id="friend-profile-code" class="friend-profile-code">QM-XXXX</span>
+        </div>
+
+        <div class="stats-container">
+          <div class="stat-row">
+            <span>CO-OP STATUS</span>
+            <span id="friend-profile-status" class="stat-value">AVAILABLE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Friend's Quest Ledger -->
+      <div class="ledger-container">
+        <h3 class="ledger-title">📜 RECENT DEEDS</h3>
+        <div id="friend-deeds-list" class="ledger-list">
+          <!-- Populated via JS -->
+        </div>
+      </div>
+
+      <button id="friend-profile-close" class="choice-close-btn">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Friend Picker Modal (Overlay) -->
+  <div id="friend-picker-modal" class="choice-overlay">
+    <div class="choice-modal friends-modal-content">
+      <h2 class="choice-modal-title">INVITE ADVENTURER</h2>
+      <div class="friends-list-container">
+        <div id="picker-friends-list" class="friends-list">
+          <!-- List of available friends to invite -->
+        </div>
+      </div>
+      <button id="friend-picker-close" class="choice-close-btn">✕ CANCEL</button>
+    </div>
+  </div>
+
+  <!-- Swipeable Layout Container -->
+  <div class="swipe-container">
+    
+    <!-- Left Panel (Profile) -->
+    <section class="panel panel-left" id="profile-panel">
+      <div class="banner-plaque small-banner">
+        <h2 class="app-title">CHARACTER</h2>
+      </div>
+
+      <div class="profile-card">
+        <!-- Avatar Frame -->
+        <div class="avatar-container">
+          <div class="avatar-frame">
+            <img id="profile-avatar" src="" alt="Avatar" class="avatar-img hidden">
+            <span id="profile-avatar-placeholder" class="avatar-placeholder">⚔️</span>
+          </div>
+          <button id="btn-change-avatar" class="stone-button small-btn">AVATAR</button>
+        </div>
+
+        <!-- Nickname Customizer -->
+        <div class="nickname-container">
+          <input type="text" id="input-nickname" value="ADVENTURER" maxlength="15" class="retro-input">
+          <span class="edit-hint">Tap to rename</span>
+        </div>
+
+        <!-- Level and XP progression -->
+        <div class="stats-container">
+          <div class="stat-row">
+            <span class="stat-label">LEVEL</span>
+            <span id="stat-level" class="stat-value">1</span>
+          </div>
+          <div class="xp-bar-container">
+            <div id="profile-xp-fill" class="xp-bar-fill"></div>
+          </div>
+          <div class="xp-text-row">
+            <span id="stat-xp-text" class="xp-ratio">0 / 100 XP</span>
+          </div>
+        </div>
+        <!-- Logout Button -->
+        <button id="btn-auth-logout" class="stone-button small-btn" style="margin-top: 5px; width: 100%; border-color: #e74c3c; color: #e74c3c;">LOGOUT</button>
+      </div>
+
+      <!-- Avatar Selector Modal (Presets + Upload) -->
+      <div id="avatar-modal" class="choice-overlay">
+        <div class="choice-modal">
+          <h2 class="choice-modal-title">SELECT AVATAR</h2>
+          <div class="avatar-presets">
+            <button class="avatar-preset-btn" data-class="warrior" title="Warrior">⚔️</button>
+            <button class="avatar-preset-btn" data-class="mage" title="Mage">🔮</button>
+            <button class="avatar-preset-btn" data-class="rogue" title="Rogue">🗡️</button>
+            <button class="avatar-preset-btn" data-class="ranger" title="Ranger">🏹</button>
+            <button class="avatar-preset-btn" data-class="paladin" title="Paladin">🛡️</button>
+            <button class="avatar-preset-btn" data-class="bard" title="Bard">🎸</button>
+          </div>
+          <div class="custom-avatar-upload">
+            <label for="avatar-file-upload" class="stone-button small-btn upload-label">
+              UPLOAD IMAGE
+            </label>
+            <input type="file" id="avatar-file-upload" accept="image/*" class="hidden-input">
+          </div>
+          <button id="avatar-modal-close" class="choice-close-btn">✕ CLOSE</button>
+        </div>
+      </div>
+
+      <!-- Quest Ledger (History) -->
+      <div class="ledger-container">
+        <h3 class="ledger-title">📜 QUEST JOURNAL</h3>
+        <div id="completed-quest-list" class="ledger-list">
+          <p class="empty-journal-msg">No completed quests yet.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Center Panel (Main App Hub) -->
+    <section class="panel panel-center" id="main-panel">
+      
+      <!-- Screen 1: Home View -->
+      <div id="view-home" class="view active-view">
+        
+        <!-- Friend Request Toast Banner -->
+        <div id="friend-request-banner" class="request-banner hidden">
+          <span class="banner-text">⚔️ New request from <span id="banner-sender-code">QM-XXXX</span>!</span>
+          <div class="banner-progress-bar"><div id="banner-progress-fill" class="banner-progress-fill"></div></div>
+        </div>
+
+        <div class="banner-plaque">
+          <h1 class="app-title">⚔ QUESTMAX ⚔</h1>
+        </div>
+        
+        <div class="main-action-area">
+          <button id="btn-start-quest" class="stone-button giant-button pulse-glow">
+            <span>START QUEST</span>
+          </button>
+        </div>
+
+        <!-- Pending Quests Section -->
+        <div class="active-quests-container">
+          <h3 class="active-quests-title">⚔️ ACTIVE QUESTS</h3>
+          <div id="active-quests-list" class="active-quests-list">
+            <p class="empty-active-msg">No active quests. Choose a path above to accept one!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screen 2: Quest Wizard -->
+      <div id="view-wizard" class="view hidden-view">
+        <button class="back-btn" data-target="view-home">← BACK</button>
+        
+        <div class="progress-frame">
+          <div class="xp-bar-container">
+            <div id="wizard-progress-fill" class="xp-bar-fill"></div>
+          </div>
+          <span id="wizard-step-text" class="progress-text">1/6</span>
+        </div>
+
+        <div class="wizard-header">
+          <h2 id="wizard-question-title" class="plaque-title">CHOOSE DIFFICULTY</h2>
+        </div>
+
+        <!-- Dynamic options container -->
+        <div id="wizard-options-container" class="inventory-grid">
+          <!-- Populated via JS -->
+        </div>
+
+        <div class="wizard-footer">
+          <button id="btn-wizard-next" class="stone-button action-btn">
+            NEXT ▶
+          </button>
+        </div>
+      </div>
+
+      <!-- Screen 3: Chest Reveal Animation -->
+      <div id="view-reveal" class="view hidden-view">
+        <h2 class="pulsing-text">REVEALING YOUR QUESTS...</h2>
+        <div class="chest-container">
+          <div id="treasure-chest" class="pixel-chest">
+            <div class="chest-lid"></div>
+            <div class="chest-lock"></div>
+            <div class="chest-body"></div>
+          </div>
+          <div id="chest-glow" class="glow-effect"></div>
+        </div>
+      </div>
+
+      <!-- Screen 4: Quest Results -->
+      <div id="view-results" class="view hidden-view">
+        <button class="back-btn" data-target="view-home">← BACK</button>
+        
+        <div class="banner-plaque small-banner">
+          <h2 class="app-title">QUESTS FOUND</h2>
+        </div>
+
+        <div id="results-list" class="quest-list">
+          <!-- Populated via JS -->
+        </div>
+
+        <div class="bottom-action">
+          <button id="btn-accept-quest" class="stone-button success-btn hidden">
+            ACCEPT QUEST ✓
+          </button>
+        </div>
+      </div>
+
+      <!-- Screen 5: Quest Board (All Quests) -->
+      <div id="view-board" class="view hidden-view">
+        <button class="back-btn" data-target="view-home">← BACK</button>
+        
+        <div class="banner-plaque small-banner">
+          <h2 class="app-title">ALL QUESTS</h2>
+        </div>
+
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-filter="all">All</button>
+          <button class="tab-btn" data-filter="chill">Chill</button>
+          <button class="tab-btn" data-filter="challenging">Challeng</button>
+          <button class="tab-btn" data-filter="legendary">Legend</button>
+        </div>
+
+        <div id="board-list" class="quest-list">
+          <!-- Populated via JS -->
+        </div>
+
+        <div class="bottom-action">
+          <button id="btn-accept-board-quest" class="stone-button success-btn hidden">
+            ACCEPT QUEST ✓
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Right Panel (Locked) -->
+    <section class="panel panel-right locked-panel">
+      <div class="locked-content">
+        <div class="padlock-icon">🔒</div>
+        <h2>LEADERBOARD</h2>
+        <p class="coming-soon">COMING SOON</p>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Swipe Indicators -->
+  <div class="swipe-indicators">
+    <div class="dot"></div>
+    <div class="dot active"></div>
+    <div class="dot"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
