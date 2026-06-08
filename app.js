@@ -1727,51 +1727,33 @@ document.addEventListener('DOMContentLoaded', () => {
     errMsgEl.textContent = "Creating simulated guest account...";
     errMsgEl.classList.remove('hidden');
     
+    // Pre-populate with randomized class, level, and quests for simulation
+    const classes = ['warrior', 'mage', 'rogue', 'ranger', 'paladin', 'bard'];
+    const randomClass = classes[Math.floor(Math.random() * classes.length)];
+    const randomLevel = Math.floor(Math.random() * 8) + 2;
+    const randomXP = Math.floor(Math.random() * 80);
+    const adjs = ['EPIC', 'SWIFT', 'BRAVE', 'MIGHTY', 'SHADOW', 'GOLDEN', 'LEGENDARY'];
+    const nouns = ['KNIGHT', 'WIZARD', 'THIEF', 'HUNTER', 'CLERIC', 'ROVER', 'CHAMPION'];
+    const randomName = adjs[Math.floor(Math.random() * adjs.length)] + '_' + nouns[Math.floor(Math.random() * nouns.length)];
+
+    pendingRegistrationData = {
+      nickname: randomName,
+      avatarClass: randomClass,
+      level: randomLevel,
+      xp: randomXP,
+      completedQuests: [
+        { questId: 'q1', title: 'Tutorial Dungeon', xpEarned: 25, completedAt: new Date().toISOString() },
+        { questId: 'q2', title: 'Defeat the Local Slime', xpEarned: 50, completedAt: new Date().toISOString() }
+      ]
+    };
+    
     try {
       await createUserWithEmailAndPassword(auth, tempEmail, tempPassword);
     } catch (err) {
       console.error("Guest registration failed:", err);
       errMsgEl.textContent = err.message;
       errMsgEl.classList.remove('hidden');
-    }
-  });
-
-  document.getElementById('btn-auth-new-member').addEventListener('click', async () => {
-    playSound('success');
-    const tempEmail = `guest_${Math.floor(Math.random() * 1000000)}@questmax.com`;
-    const tempPassword = "password123";
-    const errMsgEl = document.getElementById('auth-error-msg');
-    errMsgEl.textContent = "Simulating a new member entry...";
-    errMsgEl.classList.remove('hidden');
-    
-    try {
-      const result = await createUserWithEmailAndPassword(auth, tempEmail, tempPassword);
-      const user = result.user;
-      
-      const classes = ['warrior', 'mage', 'rogue', 'ranger', 'paladin', 'bard'];
-      const randomClass = classes[Math.floor(Math.random() * classes.length)];
-      const randomLevel = Math.floor(Math.random() * 8) + 2;
-      const randomXP = Math.floor(Math.random() * 80);
-      const adjs = ['EPIC', 'SWIFT', 'BRAVE', 'MIGHTY', 'SHADOW', 'GOLDEN', 'LEGENDARY'];
-      const nouns = ['KNIGHT', 'WIZARD', 'THIEF', 'HUNTER', 'CLERIC', 'ROVER', 'CHAMPION'];
-      const randomName = adjs[Math.floor(Math.random() * adjs.length)] + '_' + nouns[Math.floor(Math.random() * nouns.length)];
-
-      const customData = {
-        nickname: randomName,
-        avatarClass: randomClass,
-        level: randomLevel,
-        xp: randomXP,
-        completedQuests: [
-          { questId: 'q1', title: 'Tutorial Dungeon', xpEarned: 25, completedAt: new Date().toISOString() },
-          { questId: 'q2', title: 'Defeat the Local Slime', xpEarned: 50, completedAt: new Date().toISOString() }
-        ]
-      };
-      
-      await initializeUserDocument(user, customData);
-    } catch (err) {
-      console.error("Simulation registration failed:", err);
-      errMsgEl.textContent = err.message;
-      errMsgEl.classList.remove('hidden');
+      pendingRegistrationData = null;
     }
   });
 
