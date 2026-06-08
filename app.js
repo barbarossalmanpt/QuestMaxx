@@ -1628,6 +1628,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         playSound('success');
         saveToLocalStorage();
+        updateFriendsUI();
       } else if (action === 'decline') {
         playSound('toggleOff');
       } else if (action === 'accept-coop') {
