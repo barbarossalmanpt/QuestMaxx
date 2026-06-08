@@ -56,6 +56,39 @@ let unsubscribeUser = null;
 let unsubscribeNotifications = null;
 let unsubscribeLobby = null;
 
+// --- Initialize user document structure in Firestore ---
+async function initializeUserDocument(user, customData = {}) {
+  const docRef = doc(db, 'users', user.uid);
+  try {
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+  } catch (e) {
+    console.warn("Could not check if user doc exists, proceeding with creation", e);
+  }
+
+  const generatedCode = 'QM-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+  await setDoc(doc(db, 'friendCodes', generatedCode), { uid: user.uid });
+  
+  const defaults = {
+    nickname: user.displayName ? user.displayName.toUpperCase().slice(0, 15) : 'ADVENTURER',
+    avatarType: 'preset',
+    avatarClass: 'warrior',
+    avatarData: '',
+    xp: 0,
+    level: 1,
+    friendCode: generatedCode,
+    friendsList: [],
+    activeQuests: [],
+    completedQuests: []
+  };
+
+  const finalData = { ...defaults, ...customData };
+  await setDoc(docRef, finalData);
+  return finalData;
+}
+
 // --- LocalStorage & Firebase Persistence ---
 function saveToLocalStorage() {
   localStorage.setItem('questmax_character', JSON.stringify(characterState));
@@ -1732,7 +1765,52 @@ document.addEventListener('DOMContentLoaded', () => {
     errMsgEl.textContent = "Creating simulated guest account...";
     errMsgEl.classList.remove('hidden');
     
-    await signUp(tempEmail, tempPassword);
+    try {
+      await createUserWithEmailAndPassword(auth, tempEmail, tempPassword);
+    } catch (err) {
+      console.error("Guest registration failed:", err);
+      errMsgEl.textContent = err.message;
+      errMsgEl.classList.remove('hidden');
+    }
+  });
+
+  document.getElementById('btn-auth-new-member').addEventListener('click', async () => {
+    playSound('success');
+    const tempEmail = `guest_${Math.floor(Math.random() * 1000000)}@questmax.com`;
+    const tempPassword = "password123";
+    const errMsgEl = document.getElementById('auth-error-msg');
+    errMsgEl.textContent = "Simulating a new member entry...";
+    errMsgEl.classList.remove('hidden');
+    
+    try {
+      const result = await createUserWithEmailAndPassword(auth, tempEmail, tempPassword);
+      const user = result.user;
+      
+      const classes = ['warrior', 'mage', 'rogue', 'ranger', 'paladin', 'bard'];
+      const randomClass = classes[Math.floor(Math.random() * classes.length)];
+      const randomLevel = Math.floor(Math.random() * 8) + 2;
+      const randomXP = Math.floor(Math.random() * 80);
+      const adjs = ['EPIC', 'SWIFT', 'BRAVE', 'MIGHTY', 'SHADOW', 'GOLDEN', 'LEGENDARY'];
+      const nouns = ['KNIGHT', 'WIZARD', 'THIEF', 'HUNTER', 'CLERIC', 'ROVER', 'CHAMPION'];
+      const randomName = adjs[Math.floor(Math.random() * adjs.length)] + '_' + nouns[Math.floor(Math.random() * nouns.length)];
+
+      const customData = {
+        nickname: randomName,
+        avatarClass: randomClass,
+        level: randomLevel,
+        xp: randomXP,
+        completedQuests: [
+          { questId: 'q1', title: 'Tutorial Dungeon', xpEarned: 25, completedAt: new Date().toISOString() },
+          { questId: 'q2', title: 'Defeat the Local Slime', xpEarned: 50, completedAt: new Date().toISOString() }
+        ]
+      };
+      
+      await initializeUserDocument(user, customData);
+    } catch (err) {
+      console.error("Simulation registration failed:", err);
+      errMsgEl.textContent = err.message;
+      errMsgEl.classList.remove('hidden');
+    }
   });
 
   document.getElementById('btn-show-email-screen').addEventListener('click', () => {
@@ -1761,6 +1839,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Listen for Auth Changes ---
   onAuthStateChanged(auth, (user) => {
+    // Unsubscribe from previous listeners if any to prevent cross-contamination
+    if (unsubscribeUser) {
+      unsubscribeUser();
+      unsubscribeUser = null;
+    }
+    if (unsubscribeNotifications) {
+      unsubscribeNotifications();
+      unsubscribeNotifications = null;
+    }
+
     // Reset local state to default values immediately to prevent cross-contamination
     characterState = {
       nickname: 'ADVENTURER',
@@ -1811,6 +1899,19 @@ document.addEventListener('DOMContentLoaded', () => {
           updateProfileUI();
           updateActiveQuestsUI();
           updateFriendsUI();
+        } else {
+          // Document does not exist, initialize it!
+          try {
+            const isGuest = user.email && user.email.startsWith('guest_');
+            const customData = {};
+            if (isGuest) {
+              const numStr = user.email.split('@')[0].split('_')[1] || 'GUEST';
+              customData.nickname = 'GUEST_' + numStr;
+            }
+            await initializeUserDocument(user, customData);
+          } catch (e) {
+            console.error("Error self-healing user document: ", e);
+          }
         }
       });
       
