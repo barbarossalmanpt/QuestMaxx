@@ -1,7 +1,7 @@
 import { QUESTS } from './quests.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // --- Global State ---
 let isMuted = false;
@@ -1456,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const friendUid = friendCodeSnap.data().uid;
       
       // Write friend request notification to friend's notifications
-      await setDoc(doc(collection(db, 'users', friendUid, 'notifications')), {
+      await addDoc(collection(db, 'users', friendUid, 'notifications'), {
         type: 'friend_request',
         senderCode: friendCode,
         senderUid: currentUser.uid,
@@ -1512,7 +1512,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const coopQuests = QUESTS.filter(q => getQuestMaxPartySize(q) > 1);
         const randomQuest = coopQuests[Math.floor(Math.random() * coopQuests.length)];
         
-        await setDoc(doc(collection(db, 'users', currentUser.uid, 'notifications')), {
+        await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
           type: 'coop_invite',
           senderCode: randCode,
           senderUid: 'mock_uid',
@@ -1524,7 +1524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playSound('notification');
         triggerToastBanner(`${randCode} (Co-op Invite)`);
       } else {
-        await setDoc(doc(collection(db, 'users', currentUser.uid, 'notifications')), {
+        await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
           type: 'friend_request',
           senderCode: randCode,
           timestamp: Date.now(),
@@ -1724,6 +1724,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.getElementById('btn-auth-guest').addEventListener('click', async () => {
+    playSound('success');
+    const tempEmail = `guest_${Math.floor(Math.random() * 1000000)}@questmax.com`;
+    const tempPassword = "password123";
+    const errMsgEl = document.getElementById('auth-error-msg');
+    errMsgEl.textContent = "Creating simulated guest account...";
+    errMsgEl.classList.remove('hidden');
+    
+    await signUp(tempEmail, tempPassword);
+  });
+
   document.getElementById('btn-show-email-screen').addEventListener('click', () => {
     playSound('click');
     document.getElementById('auth-options-screen').classList.add('hidden');
@@ -1750,12 +1761,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Listen for Auth Changes ---
   onAuthStateChanged(auth, (user) => {
+    // Reset local state to default values immediately to prevent cross-contamination
+    characterState = {
+      nickname: 'ADVENTURER',
+      avatarType: 'preset',
+      avatarClass: 'warrior',
+      avatarData: '',
+      xp: 0,
+      level: 1
+    };
+    activeQuests = [];
+    completedQuests = [];
+    friendCode = '';
+    friendsList = [];
+    notificationsList = [];
+
+    // Redraw UI to reflect cleared state
+    updateProfileUI();
+    updateActiveQuestsUI();
+    updateFriendsUI();
+    updateNotificationsUI();
+
     if (user) {
       currentUser = user;
       document.getElementById('view-auth').classList.remove('visible');
       
       // Subscribe to real-time user database
-      unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+      unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), async (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
           characterState.nickname = data.nickname || 'ADVENTURER';
@@ -1768,6 +1800,13 @@ document.addEventListener('DOMContentLoaded', () => {
           friendsList = data.friendsList || [];
           activeQuests = data.activeQuests || [];
           completedQuests = data.completedQuests || [];
+          
+          // Fallback: If logged in user doesn't have a friendCode, create one
+          if (!friendCode) {
+            friendCode = 'QM-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+            await updateDoc(doc(db, 'users', user.uid), { friendCode: friendCode });
+            await setDoc(doc(db, 'friendCodes', friendCode), { uid: user.uid });
+          }
           
           updateProfileUI();
           updateActiveQuestsUI();
