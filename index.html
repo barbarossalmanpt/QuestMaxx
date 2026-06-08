@@ -18,20 +18,30 @@
   <div id="view-auth" class="choice-overlay visible">
     <div class="choice-modal auth-modal-content">
       <h1 class="app-title" style="font-size: 1.6rem; margin-bottom: 10px;">⚔️ QUESTMAX ⚔️</h1>
-      <h2 class="choice-modal-title" style="margin-bottom: 15px;">HERO LOGIN / REGISTER</h2>
-      <div style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px;">
+      <h2 id="auth-title" class="choice-modal-title" style="margin-bottom: 15px;">HERO LOGIN / REGISTER</h2>
+      
+      <!-- Option selection screen -->
+      <div id="auth-options-screen" style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px;">
+        <button id="btn-auth-google" class="stone-button" style="padding: 12px 0; font-size: 0.75rem; width: 100%; border-color: #4285F4; color: #4285F4; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🌐</span> SIGN IN WITH GOOGLE
+        </button>
+        <button id="btn-show-email-screen" class="stone-button" style="padding: 12px 0; font-size: 0.75rem; width: 100%; border-color: var(--neon-purple); color: var(--text-main); display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>✉️</span> SIGN IN WITH EMAIL
+        </button>
+      </div>
+
+      <!-- Email login screen (hidden by default) -->
+      <div id="auth-email-screen" class="hidden" style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px;">
         <input type="email" id="auth-email" placeholder="EMAIL ADDRESS" class="retro-input" style="width: 100%;">
         <input type="password" id="auth-password" placeholder="PASSWORD" class="retro-input" style="width: 100%;">
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <div style="display: flex; gap: 10px; margin-top: 5px;">
           <button id="btn-auth-signin" class="stone-button success-btn" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">SIGN IN</button>
           <button id="btn-auth-signup" class="stone-button" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">REGISTER</button>
         </div>
-        <!-- Google Sign In Button -->
-        <button id="btn-auth-google" class="stone-button" style="margin-top: 5px; padding: 10px 0; font-size: 0.75rem; width: 100%; border-color: #4285F4; color: #4285F4; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <span>🌐</span> SIGN IN WITH GOOGLE
-        </button>
-        <p id="auth-error-msg" class="empty-msg hidden" style="color: #e74c3c; text-align: center; margin-top: 10px; font-size: 1rem;"></p>
+        <button id="btn-back-to-options" class="choice-close-btn" style="width: 100%; border-color: var(--metal-iron); color: var(--text-dim); margin-top: 5px;">← BACK</button>
       </div>
+
+      <p id="auth-error-msg" class="empty-msg hidden" style="color: #e74c3c; text-align: center; margin-top: 10px; font-size: 1rem;"></p>
     </div>
   </div>
 
@@ -263,7 +273,7 @@
           </div>
         </div>
         <!-- Logout Button -->
-        <button id="btn-auth-logout" class="stone-button small-btn" style="margin-top: 5px; width: 100%; border-color: #e74c3c; color: #e74c3c;">LOGOUT</button>
+        <button id="btn-auth-logout" class="stone-button small-btn" style="margin-top: 5px; padding: 6px 12px; font-size: 0.65rem; border-color: #e74c3c; color: #e74c3c;">LOGOUT</button>
       </div>
 
       <!-- Avatar Selector Modal (Presets + Upload) -->

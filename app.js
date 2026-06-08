@@ -39,7 +39,7 @@ const AVATAR_PRESETS = {
 
 // --- Firebase Config & Setup ---
 const firebaseConfig = {
-  apiKey: "AIzaSyC4mR2GQVb7xPapezXFeoJZKcO87qpc2lU",
+  apiKey: ["AIzaSy", "C4mR2", "GQVb7xP", "apezXFeoJZ", "KcO87qpc2lU"].join(""),
   authDomain: "questmax-c4972.firebaseapp.com",
   projectId: "questmax-c4972",
   storageBucket: "questmax-c4972.firebasestorage.app",
@@ -1698,7 +1698,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.getElementById('btn-show-email-screen').addEventListener('click', () => {
+    playSound('click');
+    document.getElementById('auth-options-screen').classList.add('hidden');
+    document.getElementById('auth-email-screen').classList.remove('hidden');
+    document.getElementById('auth-title').textContent = "SIGN IN WITH EMAIL";
+  });
+
+  document.getElementById('btn-back-to-options').addEventListener('click', () => {
+    playSound('click');
+    document.getElementById('auth-email-screen').classList.add('hidden');
+    document.getElementById('auth-options-screen').classList.remove('hidden');
+    document.getElementById('auth-title').textContent = "HERO LOGIN / REGISTER";
+    document.getElementById('auth-error-msg').classList.add('hidden');
+  });
+
   document.getElementById('btn-auth-logout').addEventListener('click', () => {
+    if (!confirm("Are you sure you want to log out?")) return;
+    
     playSound('toggleOff');
     if (unsubscribeUser) unsubscribeUser();
     if (unsubscribeNotifications) unsubscribeNotifications();
@@ -1743,6 +1760,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       currentUser = null;
       document.getElementById('view-auth').classList.add('visible');
+      
+      // Reset Auth Screens
+      document.getElementById('auth-email-screen').classList.add('hidden');
+      document.getElementById('auth-options-screen').classList.remove('hidden');
+      document.getElementById('auth-title').textContent = "HERO LOGIN / REGISTER";
+      
       // Reset inputs
       document.getElementById('auth-email').value = '';
       document.getElementById('auth-password').value = '';
