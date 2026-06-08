@@ -801,6 +801,48 @@ function updateFriendsUI() {
       });
 
       listContainer.appendChild(item);
+
+      // Async live update in background if friend has a UID
+      if (f.uid && currentUser) {
+        getDoc(doc(db, 'users', f.uid)).then(friendDoc => {
+          if (friendDoc.exists()) {
+            const fData = friendDoc.data();
+            
+            // Check if anything actually changed before re-rendering or updating cache
+            const nameChanged = fData.nickname && fData.nickname !== f.name;
+            const classChanged = fData.avatarClass && fData.avatarClass !== f.avatarClass;
+            const typeChanged = fData.avatarType && fData.avatarType !== f.avatarType;
+            const dataChanged = fData.avatarData && fData.avatarData !== f.avatarData;
+            const levelChanged = fData.level && fData.level !== f.level;
+            
+            if (nameChanged || classChanged || typeChanged || dataChanged || levelChanged) {
+              f.name = fData.nickname || f.name;
+              f.avatarType = fData.avatarType || 'preset';
+              f.avatarClass = fData.avatarClass || 'warrior';
+              f.avatarData = fData.avatarData || '';
+              f.level = fData.level || f.level || 1;
+              f.xp = fData.xp || f.xp || 0;
+              
+              // LocalStorage cache update
+              localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+              
+              // Dynamic DOM update
+              const nameEl = item.querySelector('.friend-name');
+              const avatarEl = item.querySelector('.friend-avatar');
+              if (nameEl) nameEl.textContent = f.name;
+              if (avatarEl) {
+                if (f.avatarType === 'custom' && f.avatarData) {
+                  avatarEl.innerHTML = `<img src="${f.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
+                } else {
+                  avatarEl.innerHTML = AVATAR_PRESETS[f.avatarClass] || '⚔️';
+                }
+              }
+            }
+          }
+        }).catch(e => {
+          console.warn("Could not background update friend profile:", e);
+        });
+      }
     });
   }
 }
@@ -1579,6 +1621,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (action === 'accept') {
         // Add to friendsList
         friendsList.push({
+          uid: noti.senderUid || '',
           code: noti.senderCode,
           name: 'HERO_' + (noti.senderCode.split('-')[1] || 'HERO'),
           avatarType: 'preset',
@@ -1594,6 +1637,21 @@ document.addEventListener('DOMContentLoaded', () => {
         playSound('success');
         saveToLocalStorage();
         updateFriendsUI();
+
+        // Notify the sender that the request was accepted
+        if (noti.senderUid && noti.senderUid !== 'mock_uid' && notiId && !notiId.startsWith('mock_')) {
+          try {
+            await addDoc(collection(db, 'users', noti.senderUid, 'notifications'), {
+              type: 'friend_accepted',
+              senderCode: friendCode,
+              senderUid: currentUser.uid,
+              timestamp: Date.now(),
+              read: false
+            });
+          } catch (err) {
+            console.error("Failed to send friend_accepted notification:", err);
+          }
+        }
       } else if (action === 'decline') {
         playSound('toggleOff');
       } else if (action === 'accept-coop') {
@@ -1874,11 +1932,66 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       // Subscribe to notifications
-      unsubscribeNotifications = onSnapshot(collection(db, 'users', user.uid, 'notifications'), (snapshot) => {
+      unsubscribeNotifications = onSnapshot(collection(db, 'users', user.uid, 'notifications'), async (snapshot) => {
         notificationsList = [];
-        snapshot.forEach(docSnap => {
-          notificationsList.push({ id: docSnap.id, ...docSnap.data() });
-        });
+        let needsSave = false;
+        
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          if (data.type === 'friend_accepted') {
+            // Automatically add the friend to our list if not already present
+            const friendExists = friendsList.some(f => f.code === data.senderCode);
+            if (!friendExists) {
+              let friendDetails = {
+                uid: data.senderUid || '',
+                code: data.senderCode,
+                name: 'HERO_' + (data.senderCode.split('-')[1] || 'HERO'),
+                avatarType: 'preset',
+                avatarClass: 'warrior',
+                avatarData: '',
+                level: 1,
+                xp: 0,
+                deeds: [
+                  { title: 'Rescued a cat from tavern', xpEarned: 25 },
+                  { title: 'Conquered epic workout', xpEarned: 100 }
+                ]
+              };
+              
+              try {
+                const friendDoc = await getDoc(doc(db, 'users', data.senderUid));
+                if (friendDoc.exists()) {
+                  const fData = friendDoc.data();
+                  friendDetails.name = fData.nickname || friendDetails.name;
+                  friendDetails.avatarType = fData.avatarType || 'preset';
+                  friendDetails.avatarClass = fData.avatarClass || 'warrior';
+                  friendDetails.avatarData = fData.avatarData || '';
+                  friendDetails.level = fData.level || 1;
+                  friendDetails.xp = fData.xp || 0;
+                }
+              } catch (e) {
+                console.warn("Could not fetch friend details for acceptance", e);
+              }
+              
+              friendsList.push(friendDetails);
+              needsSave = true;
+            }
+            
+            // Delete processed friend_accepted notification
+            try {
+              await deleteDoc(doc(db, 'users', user.uid, 'notifications', docSnap.id));
+            } catch (e) {
+              console.error("Error deleting friend_accepted notification:", e);
+            }
+          } else {
+            notificationsList.push({ id: docSnap.id, ...data });
+          }
+        }
+        
+        if (needsSave) {
+          saveToLocalStorage();
+          updateFriendsUI();
+        }
+        
         updateNotificationsUI();
       }, (error) => {
         console.error("Notifications snapshot listener error:", error);
