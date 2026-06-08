@@ -1171,6 +1171,34 @@ function updateNotificationsUI() {
   }
 }
 
+function resizeImage(file, maxW, maxH, callback) {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    let width = img.width;
+    let height = img.height;
+
+    if (width > height) {
+      if (width > maxW) {
+        height *= maxW / width;
+        width = maxW;
+      }
+    } else {
+      if (height > maxH) {
+        width *= maxH / height;
+        height = maxH;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+    callback(canvas.toDataURL('image/jpeg', 0.7));
+  };
+  img.src = URL.createObjectURL(file);
+}
+
 // --- Initialization & Event Listeners ---
 document.addEventListener('DOMContentLoaded', () => {
   // Load State from LocalStorage
@@ -1277,18 +1305,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
+      resizeImage(file, 120, 120, (resizedBase64) => {
         characterState.avatarType = 'custom';
         characterState.avatarClass = '';
-        characterState.avatarData = event.target.result;
+        characterState.avatarData = resizedBase64;
         
         playSound('success');
         saveToLocalStorage();
         updateProfileUI();
         avatarModal.classList.remove('visible');
-      };
-      reader.readAsDataURL(file);
+      });
     });
   }
 
