@@ -55,6 +55,7 @@ let currentUser = null;
 let unsubscribeUser = null;
 let unsubscribeNotifications = null;
 let unsubscribeLobby = null;
+let pendingRegistrationData = null;
 
 // --- Initialize user document structure in Firestore ---
 async function initializeUserDocument(user, customData = {}) {
@@ -1696,29 +1697,9 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       errMsgEl.classList.add('hidden');
       playSound('success');
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // Generate unique friend code
-      const generatedCode = 'QM-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-      
-      // Create mapping in friendCodes
-      await setDoc(doc(db, 'friendCodes', generatedCode), { uid: user.uid });
-      
-      // Create user document
-      await setDoc(doc(db, 'users', user.uid), {
-        nickname: 'ADVENTURER',
-        avatarType: 'preset',
-        avatarClass: 'warrior',
-        avatarData: '',
-        xp: 0,
-        level: 1,
-        friendCode: generatedCode,
-        friendsList: [],
-        activeQuests: [],
-        completedQuests: []
-      });
+      await createUserWithEmailAndPassword(auth, email, password);
     } catch (err) {
+      console.error("Signup failed:", err);
       errMsgEl.textContent = err.message;
       errMsgEl.classList.remove('hidden');
     }
@@ -1730,28 +1711,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const errMsgEl = document.getElementById('auth-error-msg');
     try {
       errMsgEl.classList.add('hidden');
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) {
-        const generatedCode = 'QM-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-        await setDoc(doc(db, 'friendCodes', generatedCode), { uid: user.uid });
-        await setDoc(doc(db, 'users', user.uid), {
-          nickname: user.displayName ? user.displayName.toUpperCase().slice(0, 15) : 'ADVENTURER',
-          avatarType: 'preset',
-          avatarClass: 'warrior',
-          avatarData: '',
-          xp: 0,
-          level: 1,
-          friendCode: generatedCode,
-          friendsList: [],
-          activeQuests: [],
-          completedQuests: []
-        });
-      }
+      await signInWithPopup(auth, provider);
     } catch (err) {
-      console.error(err);
+      console.error("Google sign in failed:", err);
       errMsgEl.textContent = err.message;
       errMsgEl.classList.remove('hidden');
     }
@@ -1903,8 +1865,11 @@ document.addEventListener('DOMContentLoaded', () => {
           // Document does not exist, initialize it!
           try {
             const isGuest = user.email && user.email.startsWith('guest_');
-            const customData = {};
-            if (isGuest) {
+            let customData = {};
+            if (pendingRegistrationData) {
+              customData = pendingRegistrationData;
+              pendingRegistrationData = null;
+            } else if (isGuest) {
               const numStr = user.email.split('@')[0].split('_')[1] || 'GUEST';
               customData.nickname = 'GUEST_' + numStr;
             }
@@ -1913,6 +1878,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error self-healing user document: ", e);
           }
         }
+      }, (error) => {
+        console.error("User snapshot listener error:", error);
       });
       
       // Subscribe to notifications
@@ -1922,6 +1889,8 @@ document.addEventListener('DOMContentLoaded', () => {
           notificationsList.push({ id: docSnap.id, ...docSnap.data() });
         });
         updateNotificationsUI();
+      }, (error) => {
+        console.error("Notifications snapshot listener error:", error);
       });
     } else {
       currentUser = null;
