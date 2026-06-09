@@ -828,6 +828,7 @@ function updateFriendsUI() {
                   
                   // LocalStorage cache update
                   localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                  saveToLocalStorage();
                   
                   // Dynamic DOM update
                   const friendItem = listContainer.querySelector(`[data-friend-code="${f.code}"]`);
