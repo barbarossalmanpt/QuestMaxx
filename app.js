@@ -1,7 +1,7 @@
 import { QUESTS } from './quests.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // --- Global State ---
 let isMuted = false;
@@ -89,6 +89,20 @@ async function initializeUserDocument(user, customData = {}) {
   const finalData = { ...defaults, ...customData };
   await setDoc(docRef, finalData);
   return finalData;
+}
+
+// Secondary self-healing: query the users collection to find the UID matching a friendCode
+async function fallbackResolveUID(fCode) {
+  try {
+    const q = query(collection(db, 'users'), where('friendCode', '==', fCode));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].id;
+    }
+  } catch (err) {
+    console.error("Error running fallbackResolveUID query for code " + fCode + ":", err);
+  }
+  return null;
 }
 
 // --- LocalStorage & Firebase Persistence ---
@@ -865,9 +879,27 @@ function updateFriendsUI() {
                 saveToLocalStorage(); // Sync back to Firestore
                 setupSnapshot(retrievedUid);
               }
+            } else {
+              // Try secondary self-heal: query users collection by friendCode
+              fallbackResolveUID(f.code).then(retrievedUid => {
+                if (retrievedUid) {
+                  f.uid = retrievedUid;
+                  localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                  saveToLocalStorage();
+                  setupSnapshot(retrievedUid);
+                }
+              });
             }
           }).catch(e => {
-            console.warn("Could not self-heal resolve friend UID from code:", e);
+            console.warn("Could not self-heal resolve friend UID from code, trying fallback query:", e);
+            fallbackResolveUID(f.code).then(retrievedUid => {
+              if (retrievedUid) {
+                f.uid = retrievedUid;
+                localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                saveToLocalStorage();
+                setupSnapshot(retrievedUid);
+              }
+            });
           });
         }
       }
