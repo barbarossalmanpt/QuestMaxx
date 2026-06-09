@@ -804,48 +804,69 @@ function updateFriendsUI() {
 
       listContainer.appendChild(item);
 
-      // Real-time live update subscription in background if friend has a UID
-      if (f.uid && currentUser) {
-        if (!friendSubscriptions[f.uid]) {
-          friendSubscriptions[f.uid] = onSnapshot(doc(db, 'users', f.uid), (friendDoc) => {
-            if (friendDoc.exists()) {
-              const fData = friendDoc.data();
-              
-              const nameChanged = fData.nickname && fData.nickname !== f.name;
-              const classChanged = fData.avatarClass && fData.avatarClass !== f.avatarClass;
-              const typeChanged = fData.avatarType && fData.avatarType !== f.avatarType;
-              const dataChanged = fData.avatarData && fData.avatarData !== f.avatarData;
-              const levelChanged = fData.level && fData.level !== f.level;
-              
-              if (nameChanged || classChanged || typeChanged || dataChanged || levelChanged) {
-                f.name = fData.nickname || f.name;
-                f.avatarType = fData.avatarType || 'preset';
-                f.avatarClass = fData.avatarClass || 'warrior';
-                f.avatarData = fData.avatarData || '';
-                f.level = fData.level || f.level || 1;
-                f.xp = fData.xp || f.xp || 0;
+      // Real-time live update subscription in background
+      if (currentUser) {
+        const setupSnapshot = (uid) => {
+          if (!friendSubscriptions[uid]) {
+            friendSubscriptions[uid] = onSnapshot(doc(db, 'users', uid), (friendDoc) => {
+              if (friendDoc.exists()) {
+                const fData = friendDoc.data();
                 
-                // LocalStorage cache update
-                localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                const nameChanged = fData.nickname && fData.nickname !== f.name;
+                const classChanged = fData.avatarClass && fData.avatarClass !== f.avatarClass;
+                const typeChanged = fData.avatarType && fData.avatarType !== f.avatarType;
+                const dataChanged = fData.avatarData && fData.avatarData !== f.avatarData;
+                const levelChanged = fData.level && fData.level !== f.level;
                 
-                // Dynamic DOM update
-                const friendItem = listContainer.querySelector(`[data-friend-code="${f.code}"]`);
-                if (friendItem) {
-                  const nameEl = friendItem.querySelector('.friend-name');
-                  const avatarEl = friendItem.querySelector('.friend-avatar');
-                  if (nameEl) nameEl.textContent = f.name;
-                  if (avatarEl) {
-                    if (f.avatarType === 'custom' && f.avatarData) {
-                      avatarEl.innerHTML = `<img src="${f.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
-                    } else {
-                      avatarEl.innerHTML = AVATAR_PRESETS[f.avatarClass] || '⚔️';
+                if (nameChanged || classChanged || typeChanged || dataChanged || levelChanged) {
+                  f.name = fData.nickname || f.name;
+                  f.avatarType = fData.avatarType || 'preset';
+                  f.avatarClass = fData.avatarClass || 'warrior';
+                  f.avatarData = fData.avatarData || '';
+                  f.level = fData.level || f.level || 1;
+                  f.xp = fData.xp || f.xp || 0;
+                  
+                  // LocalStorage cache update
+                  localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                  
+                  // Dynamic DOM update
+                  const friendItem = listContainer.querySelector(`[data-friend-code="${f.code}"]`);
+                  if (friendItem) {
+                    const nameEl = friendItem.querySelector('.friend-name');
+                    const avatarEl = friendItem.querySelector('.friend-avatar');
+                    if (nameEl) nameEl.textContent = f.name;
+                    if (avatarEl) {
+                      if (f.avatarType === 'custom' && f.avatarData) {
+                        avatarEl.innerHTML = `<img src="${f.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
+                      } else {
+                        avatarEl.innerHTML = AVATAR_PRESETS[f.avatarClass] || '⚔️';
+                      }
                     }
                   }
                 }
               }
+            }, (e) => {
+              console.warn("Could not live update friend profile:", e);
+            });
+          }
+        };
+
+        if (f.uid) {
+          setupSnapshot(f.uid);
+        } else {
+          // Self-heal: Fetch UID from the code
+          getDoc(doc(db, 'friendCodes', f.code)).then(codeDoc => {
+            if (codeDoc.exists()) {
+              const retrievedUid = codeDoc.data().uid;
+              if (retrievedUid) {
+                f.uid = retrievedUid;
+                localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                saveToLocalStorage(); // Sync back to Firestore
+                setupSnapshot(retrievedUid);
+              }
             }
-          }, (e) => {
-            console.warn("Could not live update friend profile:", e);
+          }).catch(e => {
+            console.warn("Could not self-heal resolve friend UID from code:", e);
           });
         }
       }
