@@ -57,6 +57,7 @@ let unsubscribeNotifications = null;
 let unsubscribeLobby = null;
 let pendingRegistrationData = null;
 let friendSubscriptions = {};
+let friendDataCache = {};
 
 // --- Initialize user document structure in Firestore ---
 async function initializeUserDocument(user, customData = {}) {
@@ -797,17 +798,24 @@ function updateFriendsUI() {
       item.className = 'friend-item clickable';
       item.setAttribute('data-friend-code', f.code);
       
+      // Resolve details from cache or fallback to f
+      const cached = f.uid ? friendDataCache[f.uid] : null;
+      const name = cached ? (cached.nickname || f.name) : f.name;
+      const avatarType = cached ? (cached.avatarType || f.avatarType) : f.avatarType;
+      const avatarClass = cached ? (cached.avatarClass || f.avatarClass) : f.avatarClass;
+      const avatarData = cached ? (cached.avatarData || f.avatarData) : f.avatarData;
+
       let avatarHtml = '';
-      if (f.avatarType === 'custom' && f.avatarData) {
-        avatarHtml = `<img src="${f.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
+      if (avatarType === 'custom' && avatarData) {
+        avatarHtml = `<img src="${avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
       } else {
-        avatarHtml = AVATAR_PRESETS[f.avatarClass] || '⚔️';
+        avatarHtml = AVATAR_PRESETS[avatarClass] || '⚔️';
       }
 
       item.innerHTML = `
         <div class="friend-avatar">${avatarHtml}</div>
         <div class="friend-info">
-          <span class="friend-name">${f.name}</span>
+          <span class="friend-name">${name}</span>
           <span class="friend-code-text">${f.code}</span>
         </div>
       `;
@@ -826,35 +834,42 @@ function updateFriendsUI() {
               if (friendDoc.exists()) {
                 const fData = friendDoc.data();
                 
-                const nameChanged = fData.nickname && fData.nickname !== f.name;
-                const classChanged = fData.avatarClass && fData.avatarClass !== f.avatarClass;
-                const typeChanged = fData.avatarType && fData.avatarType !== f.avatarType;
-                const dataChanged = fData.avatarData && fData.avatarData !== f.avatarData;
-                const levelChanged = fData.level && fData.level !== f.level;
+                // Store in cache
+                friendDataCache[uid] = fData;
                 
-                if (nameChanged || classChanged || typeChanged || dataChanged || levelChanged) {
-                  f.name = fData.nickname || f.name;
-                  f.avatarType = fData.avatarType || 'preset';
-                  f.avatarClass = fData.avatarClass || 'warrior';
-                  f.avatarData = fData.avatarData || '';
-                  f.level = fData.level || f.level || 1;
-                  f.xp = fData.xp || f.xp || 0;
+                // Resolve from current global friendsList dynamically to avoid closure memory capture of orphaned objects
+                const currentFriend = friendsList.find(fr => fr.uid === uid || fr.code === f.code);
+                if (currentFriend) {
+                  const nameChanged = fData.nickname && fData.nickname !== currentFriend.name;
+                  const classChanged = fData.avatarClass && fData.avatarClass !== currentFriend.avatarClass;
+                  const typeChanged = fData.avatarType && fData.avatarType !== currentFriend.avatarType;
+                  const dataChanged = fData.avatarData && fData.avatarData !== currentFriend.avatarData;
+                  const levelChanged = fData.level && fData.level !== currentFriend.level;
                   
-                  // LocalStorage cache update
-                  localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
-                  saveToLocalStorage();
-                  
-                  // Dynamic DOM update
-                  const friendItem = listContainer.querySelector(`[data-friend-code="${f.code}"]`);
-                  if (friendItem) {
-                    const nameEl = friendItem.querySelector('.friend-name');
-                    const avatarEl = friendItem.querySelector('.friend-avatar');
-                    if (nameEl) nameEl.textContent = f.name;
-                    if (avatarEl) {
-                      if (f.avatarType === 'custom' && f.avatarData) {
-                        avatarEl.innerHTML = `<img src="${f.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
-                      } else {
-                        avatarEl.innerHTML = AVATAR_PRESETS[f.avatarClass] || '⚔️';
+                  if (nameChanged || classChanged || typeChanged || dataChanged || levelChanged) {
+                    currentFriend.name = fData.nickname || currentFriend.name;
+                    currentFriend.avatarType = fData.avatarType || 'preset';
+                    currentFriend.avatarClass = fData.avatarClass || 'warrior';
+                    currentFriend.avatarData = fData.avatarData || '';
+                    currentFriend.level = fData.level || currentFriend.level || 1;
+                    currentFriend.xp = fData.xp || currentFriend.xp || 0;
+                    
+                    // LocalStorage cache update
+                    localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                    saveToLocalStorage();
+                    
+                    // Dynamic DOM update
+                    const friendItem = listContainer.querySelector(`[data-friend-code="${currentFriend.code}"]`);
+                    if (friendItem) {
+                      const nameEl = friendItem.querySelector('.friend-name');
+                      const avatarEl = friendItem.querySelector('.friend-avatar');
+                      if (nameEl) nameEl.textContent = currentFriend.name;
+                      if (avatarEl) {
+                        if (currentFriend.avatarType === 'custom' && currentFriend.avatarData) {
+                          avatarEl.innerHTML = `<img src="${currentFriend.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
+                        } else {
+                          avatarEl.innerHTML = AVATAR_PRESETS[currentFriend.avatarClass] || '⚔️';
+                        }
                       }
                     }
                   }
@@ -874,19 +889,25 @@ function updateFriendsUI() {
             if (codeDoc.exists()) {
               const retrievedUid = codeDoc.data().uid;
               if (retrievedUid) {
-                f.uid = retrievedUid;
-                localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
-                saveToLocalStorage(); // Sync back to Firestore
-                setupSnapshot(retrievedUid);
+                const currentFriend = friendsList.find(fr => fr.code === f.code);
+                if (currentFriend) {
+                  currentFriend.uid = retrievedUid;
+                  localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                  saveToLocalStorage(); // Sync back to Firestore
+                  setupSnapshot(retrievedUid);
+                }
               }
             } else {
               // Try secondary self-heal: query users collection by friendCode
               fallbackResolveUID(f.code).then(retrievedUid => {
                 if (retrievedUid) {
-                  f.uid = retrievedUid;
-                  localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
-                  saveToLocalStorage();
-                  setupSnapshot(retrievedUid);
+                  const currentFriend = friendsList.find(fr => fr.code === f.code);
+                  if (currentFriend) {
+                    currentFriend.uid = retrievedUid;
+                    localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                    saveToLocalStorage();
+                    setupSnapshot(retrievedUid);
+                  }
                 }
               });
             }
@@ -894,10 +915,13 @@ function updateFriendsUI() {
             console.warn("Could not self-heal resolve friend UID from code, trying fallback query:", e);
             fallbackResolveUID(f.code).then(retrievedUid => {
               if (retrievedUid) {
-                f.uid = retrievedUid;
-                localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
-                saveToLocalStorage();
-                setupSnapshot(retrievedUid);
+                const currentFriend = friendsList.find(fr => fr.code === f.code);
+                if (currentFriend) {
+                  currentFriend.uid = retrievedUid;
+                  localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                  saveToLocalStorage();
+                  setupSnapshot(retrievedUid);
+                }
               }
             });
           });
@@ -923,34 +947,50 @@ function ensureFriendStats(friend) {
 
 function showFriendProfile(friend) {
   playSound('modalOpen');
-  ensureFriendStats(friend);
   
-  document.getElementById('friend-profile-name').textContent = friend.name;
-  document.getElementById('friend-profile-code').textContent = friend.code;
+  // Resolve details from cache or fallback to friend parameter
+  const cachedData = friend.uid ? friendDataCache[friend.uid] : null;
+  const resolvedFriend = {
+    ...friend,
+    name: cachedData ? (cachedData.nickname || friend.name) : friend.name,
+    avatarType: cachedData ? (cachedData.avatarType || friend.avatarType) : friend.avatarType,
+    avatarClass: cachedData ? (cachedData.avatarClass || friend.avatarClass) : friend.avatarClass,
+    avatarData: cachedData ? (cachedData.avatarData || friend.avatarData) : friend.avatarData,
+    level: cachedData ? (cachedData.level || friend.level) : friend.level,
+    xp: cachedData ? (cachedData.xp || friend.xp) : friend.xp,
+    deeds: (cachedData && cachedData.completedQuests && cachedData.completedQuests.length > 0) ? 
+      cachedData.completedQuests.map(q => ({ title: q.title, xpEarned: q.xpEarned })) : 
+      friend.deeds
+  };
+  
+  ensureFriendStats(resolvedFriend);
+  
+  document.getElementById('friend-profile-name').textContent = resolvedFriend.name;
+  document.getElementById('friend-profile-code').textContent = resolvedFriend.code;
   
   const avatarImg = document.getElementById('friend-profile-avatar');
   const avatarPlaceholder = document.getElementById('friend-profile-avatar-placeholder');
-  if (friend.avatarType === 'custom' && friend.avatarData) {
-    avatarImg.src = friend.avatarData;
+  if (resolvedFriend.avatarType === 'custom' && resolvedFriend.avatarData) {
+    avatarImg.src = resolvedFriend.avatarData;
     avatarImg.classList.remove('hidden');
     avatarPlaceholder.classList.add('hidden');
   } else {
     avatarImg.classList.add('hidden');
-    avatarPlaceholder.textContent = AVATAR_PRESETS[friend.avatarClass] || '⚔️';
+    avatarPlaceholder.textContent = AVATAR_PRESETS[resolvedFriend.avatarClass] || '⚔️';
     avatarPlaceholder.classList.remove('hidden');
   }
   
   const classTitles = {
     warrior: 'WARRIOR', mage: 'MAGE', rogue: 'ROGUE', ranger: 'RANGER', paladin: 'PALADIN', bard: 'BARD'
   };
-  const title = classTitles[friend.avatarClass] || 'HERO';
-  document.getElementById('friend-profile-class').textContent = `LEVEL ${friend.level} ${title}`;
+  const title = classTitles[resolvedFriend.avatarClass] || 'HERO';
+  document.getElementById('friend-profile-class').textContent = `LEVEL ${resolvedFriend.level} ${title}`;
   
   document.getElementById('friend-profile-status').textContent = 'AVAILABLE';
   
   const deedsList = document.getElementById('friend-deeds-list');
   deedsList.innerHTML = '';
-  friend.deeds.forEach(d => {
+  resolvedFriend.deeds.forEach(d => {
     const entry = document.createElement('div');
     entry.className = 'ledger-entry';
     entry.innerHTML = `
@@ -1679,21 +1719,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       if (action === 'accept') {
-        // Add to friendsList
-        friendsList.push({
+        // Prepare initial friend details
+        let friendDetails = {
           uid: noti.senderUid || '',
           code: noti.senderCode,
           name: 'HERO_' + (noti.senderCode.split('-')[1] || 'HERO'),
           avatarType: 'preset',
           avatarClass: Object.keys(AVATAR_PRESETS)[Math.floor(Math.random() * 6)],
           avatarData: '',
-          level: Math.floor(Math.random() * 8) + 2,
-          xp: Math.floor(Math.random() * 150),
+          level: 1,
+          xp: 0,
           deeds: [
             { title: 'Rescued a cat from tavern', xpEarned: 25 },
             { title: 'Conquered epic workout', xpEarned: 100 }
           ]
-        });
+        };
+
+        // Try to fetch actual details from Firestore
+        try {
+          if (noti.senderUid && noti.senderUid !== 'mock_uid') {
+            const friendDoc = await getDoc(doc(db, 'users', noti.senderUid));
+            if (friendDoc.exists()) {
+              const fData = friendDoc.data();
+              friendDetails.name = fData.nickname || friendDetails.name;
+              friendDetails.avatarType = fData.avatarType || friendDetails.avatarType;
+              friendDetails.avatarClass = fData.avatarClass || friendDetails.avatarClass;
+              friendDetails.avatarData = fData.avatarData || friendDetails.avatarData;
+              friendDetails.level = fData.level || friendDetails.level;
+              friendDetails.xp = fData.xp || friendDetails.xp;
+              if (fData.completedQuests && fData.completedQuests.length > 0) {
+                friendDetails.deeds = fData.completedQuests.map(q => ({ title: q.title, xpEarned: q.xpEarned }));
+              }
+              // Store in cache
+              friendDataCache[noti.senderUid] = fData;
+            }
+          }
+        } catch (e) {
+          console.warn("Could not fetch friend profile on accept, using placeholders:", e);
+        }
+
+        friendsList.push(friendDetails);
         playSound('success');
         saveToLocalStorage();
         updateFriendsUI();
