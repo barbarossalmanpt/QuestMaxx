@@ -56,6 +56,7 @@ let unsubscribeUser = null;
 let unsubscribeNotifications = null;
 let unsubscribeLobby = null;
 let pendingRegistrationData = null;
+let friendSubscriptions = {};
 
 // --- Initialize user document structure in Firestore ---
 async function initializeUserDocument(user, customData = {}) {
@@ -780,6 +781,7 @@ function updateFriendsUI() {
     friendsList.forEach(f => {
       const item = document.createElement('div');
       item.className = 'friend-item clickable';
+      item.setAttribute('data-friend-code', f.code);
       
       let avatarHtml = '';
       if (f.avatarType === 'custom' && f.avatarData) {
@@ -802,46 +804,50 @@ function updateFriendsUI() {
 
       listContainer.appendChild(item);
 
-      // Async live update in background if friend has a UID
+      // Real-time live update subscription in background if friend has a UID
       if (f.uid && currentUser) {
-        getDoc(doc(db, 'users', f.uid)).then(friendDoc => {
-          if (friendDoc.exists()) {
-            const fData = friendDoc.data();
-            
-            // Check if anything actually changed before re-rendering or updating cache
-            const nameChanged = fData.nickname && fData.nickname !== f.name;
-            const classChanged = fData.avatarClass && fData.avatarClass !== f.avatarClass;
-            const typeChanged = fData.avatarType && fData.avatarType !== f.avatarType;
-            const dataChanged = fData.avatarData && fData.avatarData !== f.avatarData;
-            const levelChanged = fData.level && fData.level !== f.level;
-            
-            if (nameChanged || classChanged || typeChanged || dataChanged || levelChanged) {
-              f.name = fData.nickname || f.name;
-              f.avatarType = fData.avatarType || 'preset';
-              f.avatarClass = fData.avatarClass || 'warrior';
-              f.avatarData = fData.avatarData || '';
-              f.level = fData.level || f.level || 1;
-              f.xp = fData.xp || f.xp || 0;
+        if (!friendSubscriptions[f.uid]) {
+          friendSubscriptions[f.uid] = onSnapshot(doc(db, 'users', f.uid), (friendDoc) => {
+            if (friendDoc.exists()) {
+              const fData = friendDoc.data();
               
-              // LocalStorage cache update
-              localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+              const nameChanged = fData.nickname && fData.nickname !== f.name;
+              const classChanged = fData.avatarClass && fData.avatarClass !== f.avatarClass;
+              const typeChanged = fData.avatarType && fData.avatarType !== f.avatarType;
+              const dataChanged = fData.avatarData && fData.avatarData !== f.avatarData;
+              const levelChanged = fData.level && fData.level !== f.level;
               
-              // Dynamic DOM update
-              const nameEl = item.querySelector('.friend-name');
-              const avatarEl = item.querySelector('.friend-avatar');
-              if (nameEl) nameEl.textContent = f.name;
-              if (avatarEl) {
-                if (f.avatarType === 'custom' && f.avatarData) {
-                  avatarEl.innerHTML = `<img src="${f.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
-                } else {
-                  avatarEl.innerHTML = AVATAR_PRESETS[f.avatarClass] || '⚔️';
+              if (nameChanged || classChanged || typeChanged || dataChanged || levelChanged) {
+                f.name = fData.nickname || f.name;
+                f.avatarType = fData.avatarType || 'preset';
+                f.avatarClass = fData.avatarClass || 'warrior';
+                f.avatarData = fData.avatarData || '';
+                f.level = fData.level || f.level || 1;
+                f.xp = fData.xp || f.xp || 0;
+                
+                // LocalStorage cache update
+                localStorage.setItem('questmax_friendsList', JSON.stringify(friendsList));
+                
+                // Dynamic DOM update
+                const friendItem = listContainer.querySelector(`[data-friend-code="${f.code}"]`);
+                if (friendItem) {
+                  const nameEl = friendItem.querySelector('.friend-name');
+                  const avatarEl = friendItem.querySelector('.friend-avatar');
+                  if (nameEl) nameEl.textContent = f.name;
+                  if (avatarEl) {
+                    if (f.avatarType === 'custom' && f.avatarData) {
+                      avatarEl.innerHTML = `<img src="${f.avatarData}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`;
+                    } else {
+                      avatarEl.innerHTML = AVATAR_PRESETS[f.avatarClass] || '⚔️';
+                    }
+                  }
                 }
               }
             }
-          }
-        }).catch(e => {
-          console.warn("Could not background update friend profile:", e);
-        });
+          }, (e) => {
+            console.warn("Could not live update friend profile:", e);
+          });
+        }
       }
     });
   }
@@ -1839,6 +1845,10 @@ document.addEventListener('DOMContentLoaded', () => {
     playSound('toggleOff');
     if (unsubscribeUser) unsubscribeUser();
     if (unsubscribeNotifications) unsubscribeNotifications();
+    Object.values(friendSubscriptions).forEach(unsub => {
+      try { unsub(); } catch(e) {}
+    });
+    friendSubscriptions = {};
     signOut(auth);
   });
 
@@ -1853,6 +1863,10 @@ document.addEventListener('DOMContentLoaded', () => {
       unsubscribeNotifications();
       unsubscribeNotifications = null;
     }
+    Object.values(friendSubscriptions).forEach(unsub => {
+      try { unsub(); } catch(e) {}
+    });
+    friendSubscriptions = {};
 
     // Reset local state to default values immediately to prevent cross-contamination
     characterState = {
