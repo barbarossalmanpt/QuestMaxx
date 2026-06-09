@@ -986,8 +986,44 @@ function showFriendProfile(friend) {
   const title = classTitles[resolvedFriend.avatarClass] || 'HERO';
   document.getElementById('friend-profile-class').textContent = `LEVEL ${resolvedFriend.level} ${title}`;
   
-  document.getElementById('friend-profile-status').textContent = 'AVAILABLE';
-  
+  // Populate details on the Remove button
+  const removeBtn = document.getElementById('btn-remove-friend');
+  if (removeBtn) {
+    removeBtn.setAttribute('data-uid', resolvedFriend.uid || '');
+    removeBtn.setAttribute('data-code', resolvedFriend.code || '');
+  }
+
+  // Populate dynamic quest status (AVAILABLE vs IN QUEST) and CURRENT PURSUITS
+  const activeQuestsArr = cachedData ? (cachedData.activeQuests || []) : (friend.activeQuests || []);
+  const statusEl = document.getElementById('friend-profile-status');
+  if (statusEl) {
+    if (activeQuestsArr.length > 0) {
+      statusEl.textContent = 'IN QUEST';
+      statusEl.style.color = '#9b59b6'; // Purple for questing
+    } else {
+      statusEl.textContent = 'AVAILABLE';
+      statusEl.style.color = '#2ecc71'; // Green for available
+    }
+  }
+
+  const activeQuestsList = document.getElementById('friend-active-quests-list');
+  if (activeQuestsList) {
+    activeQuestsList.innerHTML = '';
+    if (activeQuestsArr.length === 0) {
+      activeQuestsList.innerHTML = '<p class="empty-journal-msg" style="font-size:0.8rem; padding: 10px 0;">No active quests currently.</p>';
+    } else {
+      activeQuestsArr.forEach(q => {
+        const entry = document.createElement('div');
+        entry.className = 'ledger-entry';
+        entry.innerHTML = `
+          <span class="ledger-entry-title">${q.icon || '⚔️'} ${q.title}</span>
+          <span class="ledger-entry-xp" style="color: #9b59b6;">TRACKING</span>
+        `;
+        activeQuestsList.appendChild(entry);
+      });
+    }
+  }
+
   const deedsList = document.getElementById('friend-deeds-list');
   deedsList.innerHTML = '';
   resolvedFriend.deeds.forEach(d => {
@@ -1845,6 +1881,42 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('friend-profile-modal').classList.remove('visible');
     document.getElementById('friends-modal').classList.add('visible');
   });
+
+  const removeFriendBtn = document.getElementById('btn-remove-friend');
+  if (removeFriendBtn) {
+    removeFriendBtn.addEventListener('click', async () => {
+      const uid = removeFriendBtn.getAttribute('data-uid');
+      const code = removeFriendBtn.getAttribute('data-code');
+      if (!code) return;
+
+      if (confirm(`Are you sure you want to remove this friend (${code})?`)) {
+        playSound('toggleOff');
+
+        // Unsubscribe from real-time listener if exists
+        if (uid && friendSubscriptions[uid]) {
+          try {
+            friendSubscriptions[uid]();
+          } catch (e) {
+            console.error(e);
+          }
+          delete friendSubscriptions[uid];
+        }
+
+        // Remove from list
+        friendsList = friendsList.filter(fr => fr.code !== code);
+        
+        // Save changes
+        saveToLocalStorage();
+        updateFriendsUI();
+
+        // Close details modal and return to list modal
+        document.getElementById('friend-profile-modal').classList.remove('visible');
+        document.getElementById('friends-modal').classList.add('visible');
+        
+        alert("Friend removed successfully.");
+      }
+    });
+  }
 
   document.getElementById('friend-picker-close').addEventListener('click', () => {
     playSound('click');
