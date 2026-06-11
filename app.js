@@ -60,6 +60,7 @@ let pendingRegistrationData = null;
 let friendSubscriptions = {};
 let friendDataCache = {};
 let friendProfileSourceView = 'friends';
+let toastedNotificationIds = new Set();
 
 // --- Guilds State ---
 let activeGuild = null;
@@ -2141,35 +2142,87 @@ function openFriendPicker(activeQuestInstance) {
         </div>
       `;
       
-      item.addEventListener('click', () => {
+      item.addEventListener('click', async () => {
         playSound('click');
         document.getElementById('friend-picker-modal').classList.remove('visible');
+        
+        let lobbyId = activeQuestInstance.lobbyId;
+        const maxParty = getQuestMaxPartySize(activeQuestInstance);
+        
+        if (!lobbyId) {
+          lobbyId = 'LB-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+          activeQuestInstance.lobbyId = lobbyId;
+          saveToLocalStorage();
+          
+          try {
+            await setDoc(doc(db, 'lobbies', lobbyId), {
+              lobbyId: lobbyId,
+              hostUid: currentUser.uid,
+              hostName: characterState.nickname,
+              questId: activeQuestInstance.id,
+              maxPartySize: maxParty,
+              members: [
+                {
+                  uid: currentUser.uid,
+                  name: characterState.nickname,
+                  avatarType: characterState.avatarType,
+                  avatarClass: characterState.avatarClass,
+                  avatarData: characterState.avatarData,
+                  status: 'ready'
+                }
+              ],
+              createdAt: Date.now()
+            });
+          } catch (err) {
+            console.error("Failed to create lobby document:", err);
+          }
+        }
+        
+        if (f.uid) {
+          try {
+            await addDoc(collection(db, 'users', f.uid, 'notifications'), {
+              type: 'coop_invite',
+              senderCode: friendCode,
+              senderUid: currentUser.uid,
+              questId: activeQuestInstance.id,
+              questTitle: activeQuestInstance.title,
+              lobbyId: lobbyId,
+              timestamp: Date.now(),
+              read: false
+            });
+            alert("Co-op invite sent to " + f.name + "!");
+          } catch (err) {
+            console.error("Failed to send co-op invite to Firestore:", err);
+          }
+        }
         
         const friendCopy = { ...f, status: 'pending' };
         activeQuestInstance.coopFriends.push(friendCopy);
         saveToLocalStorage();
         openQuestCodex(activeQuestInstance, 'view-home');
         
+        // Background timeout simulation in case the friend isn't active
         setTimeout(() => {
-          friendCopy.status = 'ready';
-          playSound('xboxConnect');
-          
-          const maxParty = getQuestMaxPartySize(activeQuestInstance);
-          if (activeQuestInstance.coopFriends.length + 1 >= maxParty) {
-            playSound('xboxFullLobby');
-            setTimeout(() => {
-              const ring = document.querySelector('.xbox-ring');
-              if (ring) ring.classList.add('lobby-full');
-            }, 50);
+          if (friendCopy.status !== 'ready') {
+            friendCopy.status = 'ready';
+            playSound('xboxConnect');
+            
+            if (activeQuestInstance.coopFriends.length + 1 >= maxParty) {
+              playSound('xboxFullLobby');
+              setTimeout(() => {
+                const ring = document.querySelector('.xbox-ring');
+                if (ring) ring.classList.add('lobby-full');
+              }, 50);
+            }
+            
+            saveToLocalStorage();
+            updateActiveQuestsUI();
+            
+            if (document.getElementById('quest-codex-modal').classList.contains('visible') && codexQuest && codexQuest.id === activeQuestInstance.id) {
+              openQuestCodex(activeQuestInstance, 'view-home');
+            }
           }
-          
-          saveToLocalStorage();
-          updateActiveQuestsUI();
-          
-          if (document.getElementById('quest-codex-modal').classList.contains('visible') && codexQuest && codexQuest.id === activeQuestInstance.id) {
-            openQuestCodex(activeQuestInstance, 'view-home');
-          }
-        }, 1500);
+        }, 10000); // 10 second fallback if they don't accept in real-time
       });
       pickerList.appendChild(item);
     });
@@ -2533,10 +2586,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  function triggerToastBanner(senderCode) {
-    if (currentView !== 'view-home') switchView('view-home');
+  function triggerToastBanner(senderCode, type = 'friend_request', questTitle = '') {
     const banner = document.getElementById('friend-request-banner');
-    document.getElementById('banner-sender-code').textContent = senderCode;
+    if (!banner) return;
+    
+    const textEl = banner.querySelector('.banner-text');
+    if (type === 'friend_request') {
+      textEl.innerHTML = `⚔️ New request from <span id="banner-sender-code">${senderCode}</span>!`;
+    } else if (type === 'coop_invite') {
+      textEl.innerHTML = `🛡️ Co-op Invite from <span id="banner-sender-code">${senderCode}</span>!<br><span style="font-size:0.9rem; color:var(--gold-bright);">${questTitle}</span>`;
+    }
     
     banner.classList.remove('hidden', 'slide-up');
     
@@ -2664,39 +2723,44 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (action === 'decline') {
         playSound('toggleOff');
       } else if (action === 'accept-coop') {
-        const originalQuest = QUESTS.find(q => q.id === noti.questId);
-        if (originalQuest) {
-          if (activeQuests.length >= 3) {
-            alert("⚠️ Your active quest log is full! Abandon or complete a quest before starting another.");
-            return;
-          }
-          if (activeQuests.some(q => q.id === originalQuest.id)) {
-            alert("⚔️ You are already tracking this quest!");
-            return;
-          }
-          
-          const senderFriend = friendsList.find(f => f.code === noti.senderCode) || {
-            code: noti.senderCode,
-            name: 'HERO_' + (noti.senderCode.split('-')[1] || 'HERO'),
-            avatarType: 'preset',
-            avatarClass: Object.keys(AVATAR_PRESETS)[Math.floor(Math.random() * 6)],
-            avatarData: ''
-          };
-          ensureFriendStats(senderFriend);
-          const friendCopy = { ...senderFriend, status: 'ready' };
-          
-          const newActive = { ...originalQuest, coopFriends: [friendCopy] };
-          activeQuests.push(newActive);
-          playSound('success');
-          saveToLocalStorage();
-          updateActiveQuestsUI();
-          
+        if (noti.lobbyId) {
           notificationsModal.classList.remove('visible');
-          if (currentView !== 'view-home') switchView('view-home');
-          
-          setTimeout(() => {
-            openQuestCodex(newActive, 'view-home');
-          }, 300);
+          await joinQuestLobby(noti.lobbyId, noti.questId, noti.senderCode);
+        } else {
+          const originalQuest = QUESTS.find(q => q.id === noti.questId);
+          if (originalQuest) {
+            if (activeQuests.length >= 3) {
+              alert("⚠️ Your active quest log is full! Abandon or complete a quest before starting another.");
+              return;
+            }
+            if (activeQuests.some(q => q.id === originalQuest.id)) {
+              alert("⚔️ You are already tracking this quest!");
+              return;
+            }
+            
+            const senderFriend = friendsList.find(f => f.code === noti.senderCode) || {
+              code: noti.senderCode,
+              name: 'HERO_' + (noti.senderCode.split('-')[1] || 'HERO'),
+              avatarType: 'preset',
+              avatarClass: Object.keys(AVATAR_PRESETS)[Math.floor(Math.random() * 6)],
+              avatarData: ''
+            };
+            ensureFriendStats(senderFriend);
+            const friendCopy = { ...senderFriend, status: 'ready' };
+            
+            const newActive = { ...originalQuest, coopFriends: [friendCopy] };
+            activeQuests.push(newActive);
+            playSound('success');
+            saveToLocalStorage();
+            updateActiveQuestsUI();
+            
+            notificationsModal.classList.remove('visible');
+            if (currentView !== 'view-home') switchView('view-home');
+            
+            setTimeout(() => {
+              openQuestCodex(newActive, 'view-home');
+            }, 300);
+          }
         }
       } else if (action === 'decline-coop') {
         playSound('toggleOff');
@@ -2938,6 +3002,7 @@ document.addEventListener('DOMContentLoaded', () => {
     friendCode = '';
     friendsList = [];
     notificationsList = [];
+    toastedNotificationIds.clear();
 
     // Redraw UI to reflect cleared state
     updateProfileUI();
@@ -3058,6 +3123,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           } else {
             notificationsList.push({ id: docSnap.id, ...data });
+            
+            if (!data.read && !toastedNotificationIds.has(docSnap.id)) {
+              toastedNotificationIds.add(docSnap.id);
+              const age = Date.now() - (data.timestamp || 0);
+              if (age < 60000) {
+                playSound('notification');
+                if (data.type === 'friend_request') {
+                  triggerToastBanner(data.senderCode, 'friend_request');
+                } else if (data.type === 'coop_invite') {
+                  triggerToastBanner(data.senderCode, 'coop_invite', data.questTitle);
+                }
+              }
+            }
           }
         }
         
