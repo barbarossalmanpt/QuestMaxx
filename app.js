@@ -1,7 +1,7 @@
 import { QUESTS } from './quests.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // --- Global State ---
 let isMuted = false;
@@ -17,7 +17,8 @@ let characterState = {
   avatarClass: 'warrior', // warrior, mage, rogue, ranger, paladin, bard
   avatarData: '', // base64 URL for custom upload
   xp: 0,
-  level: 1
+  level: 1,
+  guildId: ''
 };
 let activeQuests = []; // max 3 active quests
 let completedQuests = []; // history of { questId, title, completedAt, xpEarned }
@@ -58,6 +59,13 @@ let unsubscribeLobby = null;
 let pendingRegistrationData = null;
 let friendSubscriptions = {};
 let friendDataCache = {};
+let friendProfileSourceView = 'friends';
+
+// --- Guilds State ---
+let activeGuild = null;
+let unsubscribeGuild = null;
+let unsubscribeGuildChat = null;
+let unsubscribeGuildLeaderboard = null;
 
 // --- Initialize user document structure in Firestore ---
 async function initializeUserDocument(user, customData = {}) {
@@ -84,7 +92,8 @@ async function initializeUserDocument(user, customData = {}) {
     friendCode: generatedCode,
     friendsList: [],
     activeQuests: [],
-    completedQuests: []
+    completedQuests: [],
+    guildId: ''
   };
 
   const finalData = { ...defaults, ...customData };
@@ -133,7 +142,8 @@ async function saveToFirestore() {
       friendCode: friendCode,
       friendsList: friendsList,
       activeQuests: activeQuests,
-      completedQuests: completedQuests
+      completedQuests: completedQuests,
+      guildId: characterState.guildId || ''
     });
   } catch (err) {
     console.error("Error saving to Firestore:", err);
@@ -758,9 +768,34 @@ function completeQuest(questId) {
     didLevelUp = true;
   }
 
+  // Post system message to guild chat if in a guild
+  if (currentUser && characterState.guildId) {
+    try {
+      addDoc(collection(db, 'guilds', characterState.guildId, 'chat'), {
+        text: `🛡️ ${characterState.nickname} completed the quest "${quest.title}" (+${xpReward} XP)!`,
+        type: 'system',
+        timestamp: Date.now()
+      });
+    } catch(e) {
+      console.warn("Failed to post quest completion to guild chat", e);
+    }
+  }
+
   if (didLevelUp) {
     playSound('levelUp');
     alert(`🎉 LEVEL UP! You reached Level ${characterState.level}!`);
+    
+    if (currentUser && characterState.guildId) {
+      try {
+        addDoc(collection(db, 'guilds', characterState.guildId, 'chat'), {
+          text: `🎉 ${characterState.nickname} leveled up to Level ${characterState.level}!`,
+          type: 'system',
+          timestamp: Date.now()
+        });
+      } catch(e) {
+        console.warn("Failed to post level up to guild chat", e);
+      }
+    }
   } else {
     playSound('success');
   }
@@ -821,6 +856,7 @@ function updateFriendsUI() {
       `;
 
       item.addEventListener('click', () => {
+        friendProfileSourceView = 'friends';
         showFriendProfile(f);
       });
 
@@ -986,11 +1022,28 @@ function showFriendProfile(friend) {
   const title = classTitles[resolvedFriend.avatarClass] || 'HERO';
   document.getElementById('friend-profile-class').textContent = `LEVEL ${resolvedFriend.level} ${title}`;
   
-  // Populate details on the Remove button
+  // Populate details on the action button (Add vs Remove vs Hide if self)
   const removeBtn = document.getElementById('btn-remove-friend');
   if (removeBtn) {
-    removeBtn.setAttribute('data-uid', resolvedFriend.uid || '');
-    removeBtn.setAttribute('data-code', resolvedFriend.code || '');
+    if (resolvedFriend.uid === currentUser.uid) {
+      removeBtn.classList.add('hidden');
+    } else {
+      removeBtn.classList.remove('hidden');
+      const isAlreadyFriend = friendsList.some(f => f.uid === resolvedFriend.uid || f.code === resolvedFriend.code);
+      if (isAlreadyFriend) {
+        removeBtn.textContent = 'REMOVE FRIEND';
+        removeBtn.style.borderColor = '#e74c3c';
+        removeBtn.style.color = '#e74c3c';
+        removeBtn.setAttribute('data-action', 'remove');
+      } else {
+        removeBtn.textContent = 'ADD FRIEND';
+        removeBtn.style.borderColor = '#2ecc71';
+        removeBtn.style.color = '#2ecc71';
+        removeBtn.setAttribute('data-action', 'add');
+      }
+      removeBtn.setAttribute('data-uid', resolvedFriend.uid || '');
+      removeBtn.setAttribute('data-code', resolvedFriend.code || '');
+    }
   }
 
   // Populate dynamic quest status (AVAILABLE vs IN QUEST) and CURRENT PURSUITS
@@ -1040,6 +1093,671 @@ function showFriendProfile(friend) {
   document.getElementById('friend-profile-modal').classList.add('visible');
 }
 
+// --- Guild / Clans Logic ---
+
+async function createGuild(name, desc, crest) {
+  if (!name.trim()) {
+    alert("Guild Name cannot be empty!");
+    return;
+  }
+  
+  try {
+    playSound('success');
+    const tempCode = 'GD-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    
+    // 1. Create Guild Document
+    const guildRef = await addDoc(collection(db, 'guilds'), {
+      name: name.trim().toUpperCase(),
+      description: desc.trim(),
+      crest: crest,
+      ownerUid: currentUser.uid,
+      members: [currentUser.uid],
+      code: tempCode,
+      createdAt: Date.now()
+    });
+    
+    const guildId = guildRef.id;
+    
+    // 2. Post a system message in the subcollection chat
+    await addDoc(collection(db, 'guilds', guildId, 'chat'), {
+      text: `🏰 Guild "${name.trim().toUpperCase()}" has been created by ${characterState.nickname}!`,
+      type: 'system',
+      timestamp: Date.now()
+    });
+    
+    // 3. Update User document with guildId
+    characterState.guildId = guildId;
+    saveToLocalStorage(); // Sync back to Firestore
+    
+    alert(`Guild "${name.trim().toUpperCase()}" created successfully! Code: ${tempCode}`);
+  } catch (err) {
+    console.error("Error creating guild:", err);
+    alert("Failed to create guild: " + err.message);
+  }
+}
+
+async function joinGuild(code) {
+  const cleanCode = code.trim().toUpperCase();
+  if (!cleanCode) return;
+  
+  try {
+    const q = query(collection(db, 'guilds'), where('code', '==', cleanCode));
+    const querySnap = await getDocs(q);
+    
+    if (querySnap.empty) {
+      alert("Guild Code not found!");
+      return;
+    }
+    
+    const guildDoc = querySnap.docs[0];
+    const gData = guildDoc.data();
+    
+    if (gData.members.length >= 30) {
+      alert("This guild is full (max 30 members)!");
+      return;
+    }
+    
+    if (gData.members.includes(currentUser.uid)) {
+      alert("You are already in this guild!");
+      return;
+    }
+    
+    playSound('success');
+    
+    // 1. Add to members list
+    await updateDoc(doc(db, 'guilds', guildDoc.id), {
+      members: arrayUnion(currentUser.uid)
+    });
+    
+    // 2. Post system message
+    await addDoc(collection(db, 'guilds', guildDoc.id, 'chat'), {
+      text: `🚪 ${characterState.nickname} joined the guild!`,
+      type: 'system',
+      timestamp: Date.now()
+    });
+    
+    // 3. Update User doc
+    characterState.guildId = guildDoc.id;
+    saveToLocalStorage();
+    
+    alert(`Joined "${gData.name}" successfully!`);
+  } catch (err) {
+    console.error("Error joining guild:", err);
+    alert("Failed to join guild: " + err.message);
+  }
+}
+
+async function leaveGuild() {
+  if (!activeGuild) return;
+  
+  if (confirm(`Are you sure you want to leave "${activeGuild.name}"?`)) {
+    try {
+      playSound('toggleOff');
+      const gId = activeGuild.id;
+      
+      // If owner, check if we must delete or transfer ownership
+      if (activeGuild.ownerUid === currentUser.uid) {
+        const nextOwner = activeGuild.members.find(m => m !== currentUser.uid);
+        if (nextOwner) {
+          await updateDoc(doc(db, 'guilds', gId), {
+            ownerUid: nextOwner,
+            members: arrayRemove(currentUser.uid)
+          });
+          
+          await addDoc(collection(db, 'guilds', gId, 'chat'), {
+            text: `🚪 Leader ${characterState.nickname} left the guild. ${friendDataCache[nextOwner]?.nickname || 'A member'} is the new Leader!`,
+            type: 'system',
+            timestamp: Date.now()
+          });
+        } else {
+          // Delete completely if no one left
+          await deleteDoc(doc(db, 'guilds', gId));
+        }
+      } else {
+        // Not owner, just remove from members
+        await updateDoc(doc(db, 'guilds', gId), {
+          members: arrayRemove(currentUser.uid)
+        });
+        
+        await addDoc(collection(db, 'guilds', gId, 'chat'), {
+          text: `🚪 ${characterState.nickname} left the guild.`,
+          type: 'system',
+          timestamp: Date.now()
+        });
+      }
+      
+      // Clean up subscriptions
+      if (unsubscribeGuild) { unsubscribeGuild(); unsubscribeGuild = null; }
+      if (unsubscribeGuildChat) { unsubscribeGuildChat(); unsubscribeGuildChat = null; }
+      if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); unsubscribeGuildLeaderboard = null; }
+      activeGuild = null;
+      
+      // Update User doc
+      characterState.guildId = '';
+      saveToLocalStorage();
+      
+      // Reset UI
+      document.getElementById('view-guild-hub').classList.add('hidden-view');
+      document.getElementById('view-guild-hub').classList.remove('active-view');
+      document.getElementById('view-guild-none').classList.add('active-view');
+      document.getElementById('view-guild-none').classList.remove('hidden-view');
+      
+      renderPublicGuildsList();
+      alert("Left the guild.");
+    } catch (err) {
+      console.error("Error leaving guild:", err);
+      alert("Failed to leave guild: " + err.message);
+    }
+  }
+}
+
+async function kickGuildMember(memberUid, memberName) {
+  if (!activeGuild || activeGuild.ownerUid !== currentUser.uid) return;
+  
+  if (confirm(`🛡️ Leader Action: Are you sure you want to kick ${memberName} from the guild?`)) {
+    try {
+      playSound('toggleOff');
+      
+      // 1. Remove from guild document members array
+      await updateDoc(doc(db, 'guilds', activeGuild.id), {
+        members: arrayRemove(memberUid)
+      });
+      
+      // 2. Post system chat message
+      await addDoc(collection(db, 'guilds', activeGuild.id, 'chat'), {
+        text: `🛡️ ${memberName} was kicked from the guild by Leader ${characterState.nickname}.`,
+        type: 'system',
+        timestamp: Date.now()
+      });
+      
+      alert(`${memberName} has been kicked.`);
+    } catch (e) {
+      console.error("Error kicking member:", e);
+      alert("Failed to kick member: " + e.message);
+    }
+  }
+}
+
+async function saveGuildEdit(newDesc, newCrest) {
+  if (!activeGuild || activeGuild.ownerUid !== currentUser.uid) return;
+  
+  try {
+    playSound('success');
+    await updateDoc(doc(db, 'guilds', activeGuild.id), {
+      description: newDesc.trim(),
+      crest: newCrest
+    });
+    
+    await addDoc(collection(db, 'guilds', activeGuild.id, 'chat'), {
+      text: `🛡️ Guild details updated by Leader ${characterState.nickname}.`,
+      type: 'system',
+      timestamp: Date.now()
+    });
+  } catch (err) {
+    console.error("Error editing guild details:", err);
+    alert("Failed to save guild changes: " + err.message);
+  }
+}
+
+async function sendChatMessage(text, type = 'chat', meta = null) {
+  if (!activeGuild || !text.trim()) return;
+  
+  try {
+    await addDoc(collection(db, 'guilds', activeGuild.id, 'chat'), {
+      senderUid: currentUser.uid,
+      senderName: characterState.nickname,
+      senderAvatarClass: characterState.avatarClass,
+      senderAvatarType: characterState.avatarType,
+      senderAvatarData: characterState.avatarData,
+      text: text.trim(),
+      type: type,
+      meta: meta,
+      timestamp: Date.now()
+    });
+  } catch (err) {
+    console.error("Error sending chat message:", err);
+  }
+}
+
+async function joinQuestLobby(lobbyId, questId, hostName) {
+  if (activeQuests.some(q => q.id === questId)) {
+    alert("⚔️ You are already tracking this quest!");
+    return;
+  }
+  
+  if (activeQuests.length >= 3) {
+    alert("⚠️ Your active quest log is full! Abandon or complete a quest before starting another.");
+    return;
+  }
+  
+  const quest = QUESTS.find(q => q.id === questId);
+  if (!quest) return;
+  
+  try {
+    const lobbyRef = doc(db, 'lobbies', lobbyId);
+    const lobbySnap = await getDoc(lobbyRef);
+    if (!lobbySnap.exists()) {
+      alert("Lobby no longer exists!");
+      return;
+    }
+    
+    const lobbyData = lobbySnap.data();
+    if (lobbyData.members.length >= lobbyData.maxPartySize) {
+      alert("This co-op lobby is full!");
+      return;
+    }
+    
+    if (lobbyData.members.some(m => m.uid === currentUser.uid)) {
+      alert("You are already in this lobby!");
+      return;
+    }
+    
+    const myMemberObj = {
+      uid: currentUser.uid,
+      name: characterState.nickname,
+      avatarType: characterState.avatarType,
+      avatarClass: characterState.avatarClass,
+      avatarData: characterState.avatarData,
+      status: 'ready'
+    };
+    
+    await updateDoc(lobbyRef, {
+      members: arrayUnion(myMemberObj)
+    });
+    
+    const newActive = { 
+      ...quest, 
+      lobbyId: lobbyId,
+      coopFriends: lobbyData.members.filter(m => m.uid !== currentUser.uid).map(m => ({
+        uid: m.uid,
+        name: m.name,
+        avatarType: m.avatarType,
+        avatarClass: m.avatarClass,
+        avatarData: m.avatarData,
+        status: m.status
+      }))
+    };
+    activeQuests.push(newActive);
+    saveToLocalStorage();
+    updateActiveQuestsUI();
+    
+    playSound('success');
+    playSound('xboxConnect');
+    
+    if (characterState.guildId) {
+      await addDoc(collection(db, 'guilds', characterState.guildId, 'chat'), {
+        text: `🎮 ${characterState.nickname} joined ${hostName}'s lobby for "${quest.title}"!`,
+        type: 'system',
+        timestamp: Date.now()
+      });
+    }
+    
+    alert(`Joined ${hostName}'s lobby!`);
+    
+    switchView('view-home');
+    setTimeout(() => {
+      openQuestCodex(newActive, 'view-home');
+    }, 300);
+  } catch (err) {
+    console.error("Error joining lobby:", err);
+    alert("Failed to join lobby: " + err.message);
+  }
+}
+
+function joinQuestFromChat(questId, hostUid, hostName) {
+  if (activeQuests.some(q => q.id === questId)) {
+    alert("⚔️ You are already tracking this quest!");
+    return;
+  }
+  
+  if (activeQuests.length >= 3) {
+    alert("⚠️ Your active quest log is full! Abandon or complete a quest before starting another.");
+    return;
+  }
+  
+  const quest = QUESTS.find(q => q.id === questId);
+  if (!quest) return;
+  
+  let hostDetails = {
+    uid: hostUid,
+    code: '',
+    name: hostName,
+    avatarType: 'preset',
+    avatarClass: 'warrior',
+    avatarData: '',
+    status: 'ready'
+  };
+  
+  const cachedHost = friendDataCache[hostUid];
+  if (cachedHost) {
+    hostDetails.avatarType = cachedHost.avatarType || 'preset';
+    hostDetails.avatarClass = cachedHost.avatarClass || 'warrior';
+    hostDetails.avatarData = cachedHost.avatarData || '';
+  }
+  
+  const newActive = { ...quest, coopFriends: [ hostDetails ] };
+  activeQuests.push(newActive);
+  playSound('success');
+  playSound('xboxConnect');
+  saveToLocalStorage();
+  updateActiveQuestsUI();
+  
+  alert(`Joined ${hostName}'s Co-op Quest: "${quest.title}"!`);
+}
+
+function handleGuildSubscription(newGuildId) {
+  if (!newGuildId) {
+    // Unsubscribe from any active guild
+    if (unsubscribeGuild) { unsubscribeGuild(); unsubscribeGuild = null; }
+    if (unsubscribeGuildChat) { unsubscribeGuildChat(); unsubscribeGuildChat = null; }
+    if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); unsubscribeGuildLeaderboard = null; }
+    activeGuild = null;
+    
+    // Toggle UI views
+    document.getElementById('view-guild-none').classList.add('active-view');
+    document.getElementById('view-guild-none').classList.remove('hidden-view');
+    document.getElementById('view-guild-hub').classList.add('hidden-view');
+    document.getElementById('view-guild-hub').classList.remove('active-view');
+    
+    // Fetch public guilds list
+    renderPublicGuildsList();
+    return;
+  }
+  
+  // If we are already subscribed to this guild, do nothing
+  if (activeGuild && activeGuild.id === newGuildId) {
+    return;
+  }
+  
+  // Otherwise, subscribe to the new guild!
+  if (unsubscribeGuild) { unsubscribeGuild(); }
+  if (unsubscribeGuildChat) { unsubscribeGuildChat(); }
+  if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); }
+  
+  // Show Guild Hub view
+  document.getElementById('view-guild-none').classList.add('hidden-view');
+  document.getElementById('view-guild-none').classList.remove('active-view');
+  document.getElementById('view-guild-hub').classList.add('active-view');
+  document.getElementById('view-guild-hub').classList.remove('hidden-view');
+  
+  // 1. Subscribe to Guild Doc
+  unsubscribeGuild = onSnapshot(doc(db, 'guilds', newGuildId), async (guildSnap) => {
+    if (!guildSnap.exists()) {
+      // Guild was deleted, clean up our user reference
+      characterState.guildId = '';
+      saveToLocalStorage();
+      return;
+    }
+    
+    const gData = guildSnap.data();
+    activeGuild = { id: guildSnap.id, ...gData };
+    
+    // Check if we were kicked (not in members array anymore)
+    if (!gData.members.includes(currentUser.uid)) {
+      // Clean up our user reference
+      characterState.guildId = '';
+      saveToLocalStorage();
+      alert("🛡️ Leader Action: You have been kicked from the guild.");
+      return;
+    }
+    
+    // Render Guild Info in Hub Header
+    document.getElementById('guild-hub-crest').textContent = gData.crest || '🛡️';
+    document.getElementById('guild-hub-name').textContent = gData.name || 'GUILD';
+    document.getElementById('guild-hub-desc').textContent = gData.description || '';
+    document.getElementById('guild-hub-code').textContent = gData.code || '';
+    document.getElementById('guild-hub-count').textContent = `${gData.members.length}/30`;
+    
+    // Toggle leader actions
+    const isLeader = gData.ownerUid === currentUser.uid;
+    const actionsEl = document.getElementById('guild-leader-actions');
+    if (actionsEl) {
+      if (isLeader) actionsEl.classList.remove('hidden');
+      else actionsEl.classList.add('hidden');
+    }
+    
+    // Subscribe to Leaderboard members updates
+    subscribeToLeaderboard(gData.members);
+  }, (err) => {
+    console.error("Guild snapshot error:", err);
+  });
+  
+  // 2. Subscribe to Guild Chat (last 50 messages)
+  const chatQuery = query(
+    collection(db, 'guilds', newGuildId, 'chat'),
+    orderBy('timestamp', 'asc'),
+    limit(50)
+  );
+  
+  unsubscribeGuildChat = onSnapshot(chatQuery, (chatSnap) => {
+    const chatFeed = document.getElementById('guild-chat-feed');
+    if (!chatFeed) return;
+    
+    // Check if we should notify user of new messages (if not currently looking at the chat tab)
+    const isChatTabActive = document.getElementById('tab-guild-chat').classList.contains('active');
+    
+    // Save scroll position to auto-scroll if at bottom
+    const wasAtBottom = chatFeed.scrollHeight - chatFeed.scrollTop <= chatFeed.clientHeight + 40;
+    
+    chatFeed.innerHTML = '';
+    chatSnap.docs.forEach(docSnap => {
+      const msg = docSnap.data();
+      const item = document.createElement('div');
+      
+      if (msg.type === 'system') {
+        item.className = 'chat-msg system';
+        item.textContent = msg.text;
+      } else if (msg.type === 'coop_invite') {
+        item.className = 'chat-msg';
+        if (msg.senderUid === currentUser.uid) item.classList.add('self');
+        
+        const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const meta = msg.meta || {};
+        
+        item.innerHTML = `
+          <div class="chat-msg-header">
+            <span class="chat-msg-sender">${msg.senderName}</span>
+            <span class="chat-msg-time">${timeStr}</span>
+          </div>
+          <div class="chat-msg-text">Shared a Co-op Quest!</div>
+          <div class="chat-quest-card">
+            <div class="chat-quest-header">
+              <span class="chat-quest-icon">${meta.questIcon || '⚔️'}</span>
+              <span class="chat-quest-title" title="${msg.text}">${msg.text}</span>
+            </div>
+            <div class="chat-quest-meta">
+              <span>${'⚔️'.repeat(meta.difficulty || 1)}</span>
+              <span>Co-op Invite</span>
+            </div>
+            <button class="stone-button success-btn chat-quest-join-btn" data-id="${meta.questId}" data-sender-uid="${msg.senderUid}" data-sender-code="${meta.senderCode || ''}">JOIN LOBBY</button>
+          </div>
+        `;
+        
+        // Wire join event
+        const joinBtn = item.querySelector('.chat-quest-join-btn');
+        if (joinBtn) {
+          joinBtn.addEventListener('click', () => {
+            playSound('click');
+            if (meta.lobbyId) {
+              joinQuestLobby(meta.lobbyId, meta.questId, msg.senderName);
+            } else {
+              joinQuestFromChat(meta.questId, msg.senderUid, msg.senderName);
+            }
+          });
+        }
+      } else {
+        item.className = 'chat-msg';
+        if (msg.senderUid === currentUser.uid) item.classList.add('self');
+        
+        const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        item.innerHTML = `
+          <div class="chat-msg-header">
+            <span class="chat-msg-sender">${msg.senderName}</span>
+            <span class="chat-msg-time">${timeStr}</span>
+          </div>
+          <div class="chat-msg-text">${msg.text}</div>
+        `;
+      }
+      chatFeed.appendChild(item);
+    });
+    
+    // Auto-scroll to bottom
+    if (wasAtBottom || isChatTabActive) {
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+    }
+  });
+}
+
+function subscribeToLeaderboard(memberUids) {
+  if (unsubscribeGuildLeaderboard) {
+    unsubscribeGuildLeaderboard();
+  }
+  
+  if (!memberUids || memberUids.length === 0) return;
+  
+  const q = query(
+    collection(db, 'users'),
+    where('__name__', 'in', memberUids.slice(0, 30))
+  );
+  
+  unsubscribeGuildLeaderboard = onSnapshot(q, (snapshot) => {
+    const leaderboardList = document.getElementById('guild-leaderboard-list');
+    if (!leaderboardList) return;
+    
+    const membersData = [];
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      friendDataCache[docSnap.id] = d; // Cache details for tapping member profile
+      membersData.push({
+        uid: docSnap.id,
+        name: d.nickname || 'HERO',
+        avatarType: d.avatarType || 'preset',
+        avatarClass: d.avatarClass || 'warrior',
+        avatarData: d.avatarData || '',
+        level: d.level || 1,
+        xp: d.xp || 0
+      });
+    });
+    
+    membersData.sort((a, b) => {
+      if (b.level !== a.level) return b.level - a.level;
+      return b.xp - a.xp;
+    });
+    
+    leaderboardList.innerHTML = '';
+    membersData.forEach((m, idx) => {
+      const row = document.createElement('div');
+      row.className = 'leaderboard-row';
+      if (m.uid === currentUser.uid) row.classList.add('current-user');
+      
+      const rank = idx + 1;
+      let rankBadge = rank;
+      if (rank === 1) rankBadge = '🥇';
+      else if (rank === 2) rankBadge = '🥈';
+      else if (rank === 3) rankBadge = '🥉';
+      
+      let avatarHtml = '';
+      if (m.avatarType === 'custom' && m.avatarData) {
+        avatarHtml = `<img src="${m.avatarData}" style="width:20px; height:20px; object-fit:cover; border-radius:2px;">`;
+      } else {
+        avatarHtml = AVATAR_PRESETS[m.avatarClass] || '⚔️';
+      }
+      
+      let kickHtml = '';
+      if (activeGuild && activeGuild.ownerUid === currentUser.uid && m.uid !== currentUser.uid) {
+        kickHtml = `<button class="member-kick-btn" data-uid="${m.uid}" data-name="${m.name}">KICK</button>`;
+      }
+      
+      row.innerHTML = `
+        <div class="leaderboard-member-info">
+          <span class="leaderboard-rank" style="font-size: 1.1rem; min-width: 20px; text-align: center;">${rankBadge}</span>
+          <span class="leaderboard-avatar" style="font-size: 1.1rem; display: flex; align-items: center;">${avatarHtml}</span>
+          <span class="leaderboard-name">${m.name}</span>
+          ${kickHtml}
+        </div>
+        <div class="leaderboard-xp">
+          <span>LVL ${m.level}</span>
+          <span class="leaderboard-xp-val">(${m.xp} XP)</span>
+        </div>
+      `;
+      
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => {
+        friendProfileSourceView = 'guild';
+        const friendObj = {
+          uid: m.uid,
+          code: friendDataCache[m.uid]?.friendCode || 'QM-XXXX',
+          name: m.name,
+          avatarType: m.avatarType,
+          avatarClass: m.avatarClass,
+          avatarData: m.avatarData,
+          level: m.level,
+          xp: m.xp,
+          deeds: []
+        };
+        showFriendProfile(friendObj);
+      });
+      
+      const kickBtn = row.querySelector('.member-kick-btn');
+      if (kickBtn) {
+        kickBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          kickGuildMember(m.uid, m.name);
+        });
+      }
+      
+      leaderboardList.appendChild(row);
+    });
+  });
+}
+
+async function renderPublicGuildsList() {
+  const container = document.getElementById('public-guilds-list');
+  if (!container) return;
+  
+  try {
+    const q = query(collection(db, 'guilds'), limit(15));
+    const snap = await getDocs(q);
+    
+    container.innerHTML = '';
+    if (snap.empty) {
+      container.innerHTML = '<p class="empty-journal-msg" style="text-align: center; padding: 15px;">No active guilds. Be the first to create one!</p>';
+      return;
+    }
+    
+    snap.docs.forEach(docSnap => {
+      const g = docSnap.data();
+      const item = document.createElement('div');
+      item.className = 'guild-list-item';
+      item.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.5rem;">${g.crest || '🛡️'}</span>
+          <div style="display: flex; flex-direction: column;">
+            <strong style="color: var(--gold-primary); font-size: 0.9rem;">${g.name}</strong>
+            <span style="font-size: 0.75rem; color: var(--text-dim); max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${g.description}</span>
+          </div>
+        </div>
+        <div style="text-align: right; font-size: 0.8rem;">
+          <span style="color: var(--emerald); font-weight: bold;">${g.code}</span>
+          <div style="color: var(--text-dim); font-size: 0.7rem; margin-top: 2px;">${g.members.length}/30</div>
+        </div>
+      `;
+      
+      item.addEventListener('click', () => {
+        const codeInput = document.getElementById('guild-join-code');
+        if (codeInput) {
+          codeInput.value = g.code;
+          codeInput.focus();
+        }
+      });
+      
+      container.appendChild(item);
+    });
+  } catch (e) {
+    console.error("Error loading public guilds:", e);
+  }
+}
+
 // --- Quest Codex Modal Logic ---
 let codexQuest = null;
 
@@ -1049,6 +1767,112 @@ function getQuestMaxPartySize(quest) {
   if (p.includes('squad')) return 4;
   if (p.includes('duo')) return 2;
   return 1;
+}
+
+function drawFellowshipRing(activeInstance) {
+  const ring = document.querySelector('.xbox-ring');
+  if (!ring) return;
+  ring.classList.remove('lobby-full');
+  
+  const quadrants = ring.querySelectorAll('.quadrant');
+  quadrants.forEach(q => {
+    q.classList.remove('active');
+    q.style.opacity = '0';
+  });
+  
+  const partyList = document.getElementById('xbox-party-list');
+  if (!partyList) return;
+  partyList.innerHTML = '';
+  
+  let myAvatarHtml = characterState.avatarType === 'custom' && characterState.avatarData ? 
+    `<img src="${characterState.avatarData}" style="width:100%; height:100%; object-fit:cover; border-radius: 50%;">` : 
+    (AVATAR_PRESETS[characterState.avatarClass] || '⚔️');
+    
+  // Slot 1 (You) is active
+  ring.querySelector('.q-tl').classList.add('active');
+  ring.querySelector('.q-tl').style.opacity = '1';
+  
+  partyList.innerHTML = `
+    <div class="party-member">
+      <div class="party-avatar">${myAvatarHtml}</div>
+      <span class="party-name">${characterState.nickname} (YOU)</span>
+      <span class="party-status">READY</span>
+    </div>
+  `;
+  
+  const maxParty = getQuestMaxPartySize(activeInstance);
+  const friends = activeInstance.coopFriends || [];
+  const quadClasses = ['.q-tr', '.q-br', '.q-bl'];
+  
+  friends.forEach((friend, idx) => {
+    if (idx < quadClasses.length) {
+      const path = ring.querySelector(quadClasses[idx]);
+      path.classList.add('active');
+      if (friend.status !== 'ready') {
+        path.style.opacity = '0.5';
+      } else {
+        path.style.opacity = '1';
+      }
+    }
+    
+    let friendAvatar = friend.avatarType === 'custom' && friend.avatarData ?
+      `<img src="${friend.avatarData}" style="width:100%; height:100%; object-fit:cover; border-radius: 50%;">` :
+      (AVATAR_PRESETS[friend.avatarClass] || '⚔️');
+      
+    const statusText = friend.status === 'ready' ? 'READY' : 'PENDING...';
+    const statusClass = friend.status === 'ready' ? 'party-status' : 'party-status pending';
+    
+    partyList.innerHTML += `
+      <div class="party-member">
+        <div class="party-avatar">${friendAvatar}</div>
+        <span class="party-name">${friend.name}</span>
+        <span class="${statusClass}">${statusText}</span>
+      </div>
+    `;
+  });
+  
+  const currentPartySize = 1 + friends.length;
+  document.getElementById('ring-party-size').textContent = `${currentPartySize}/${maxParty}`;
+  
+  if (currentPartySize >= maxParty && friends.every(f => f.status === 'ready')) {
+    ring.classList.add('lobby-full');
+  }
+  
+  const bonusRow = document.getElementById('codex-bonus-row');
+  const baseXP = getQuestXPReward(activeInstance);
+  const readyFriends = friends.filter(f => f.status === 'ready');
+  if (readyFriends.length > 0 && bonusRow) {
+    bonusRow.classList.remove('hidden');
+    document.getElementById('codex-bonus-xp').textContent = `+${Math.round(baseXP * 0.25)} XP`;
+  } else if (bonusRow) {
+    bonusRow.classList.add('hidden');
+  }
+  
+  const inviteBtn = document.getElementById('btn-codex-invite');
+  if (inviteBtn) {
+    if (currentPartySize < maxParty && friendsList.length > 0) {
+      inviteBtn.classList.remove('hidden');
+    } else {
+      inviteBtn.classList.add('hidden');
+    }
+  }
+  
+  const guildInviteBtn = document.getElementById('btn-codex-guild-invite');
+  if (guildInviteBtn) {
+    if (currentPartySize < maxParty && characterState.guildId && !activeInstance.lobbyId) {
+      guildInviteBtn.classList.remove('hidden');
+    } else {
+      guildInviteBtn.classList.add('hidden');
+    }
+  }
+}
+
+function closeQuestCodex() {
+  document.getElementById('quest-codex-modal').classList.remove('visible');
+  if (unsubscribeLobby) {
+    unsubscribeLobby();
+    unsubscribeLobby = null;
+  }
 }
 
 function openQuestCodex(quest, sourceView, hostFriend = null) {
@@ -1073,7 +1897,10 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
   ring.classList.remove('lobby-full');
   
   const quadrants = ring.querySelectorAll('.quadrant');
-  quadrants.forEach(q => q.classList.remove('active'));
+  quadrants.forEach(q => {
+    q.classList.remove('active');
+    q.style.opacity = '0';
+  });
   
   const partyList = document.getElementById('xbox-party-list');
   partyList.innerHTML = '';
@@ -1081,9 +1908,10 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
   const bonusRow = document.getElementById('codex-bonus-row');
   const actionBtn = document.getElementById('btn-codex-action');
   const inviteBtn = document.getElementById('btn-codex-invite');
+  const guildInviteBtn = document.getElementById('btn-codex-guild-invite');
   
   let myAvatarHtml = characterState.avatarType === 'custom' && characterState.avatarData ? 
-    `<img src="${characterState.avatarData}" style="width:100%; height:100%; object-fit:cover;">` : 
+    `<img src="${characterState.avatarData}" style="width:100%; height:100%; object-fit:cover; border-radius: 50%;">` : 
     (AVATAR_PRESETS[characterState.avatarClass] || '⚔️');
 
   if (hostFriend) {
@@ -1097,7 +1925,7 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
     qTr.style.opacity = '0.5';
     
     let hostAvatarHtml = hostFriend.avatarType === 'custom' && hostFriend.avatarData ?
-      `<img src="${hostFriend.avatarData}" style="width:100%; height:100%; object-fit:cover;">` :
+      `<img src="${hostFriend.avatarData}" style="width:100%; height:100%; object-fit:cover; border-radius: 50%;">` :
       (AVATAR_PRESETS[hostFriend.avatarClass] || '⚔️');
       
     partyList.innerHTML = `
@@ -1116,6 +1944,7 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
     document.getElementById('ring-party-size').textContent = `1/${maxParty}`;
     bonusRow.classList.add('hidden');
     inviteBtn.classList.add('hidden');
+    if (guildInviteBtn) guildInviteBtn.classList.add('hidden');
     
     actionBtn.textContent = 'JOIN QUEST ✓';
     actionBtn.className = 'stone-button success-btn';
@@ -1136,10 +1965,9 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
       saveToLocalStorage();
       updateActiveQuestsUI();
       
-      // Play Xbox connect chime when joining
       playSound('xboxConnect');
       
-      document.getElementById('quest-codex-modal').classList.remove('visible');
+      closeQuestCodex();
       if (currentView !== 'view-home') switchView('view-home');
       
       setTimeout(() => {
@@ -1147,77 +1975,96 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
       }, 300);
     };
   } else if (activeInstance) {
-    // Slot 1 (You) is active
-    ring.querySelector('.q-tl').classList.add('active');
-    ring.querySelector('.q-tl').style.opacity = '1';
-    
-    partyList.innerHTML = `
-      <div class="party-member">
-        <div class="party-avatar">${myAvatarHtml}</div>
-        <span class="party-name">${characterState.nickname} (YOU)</span>
-        <span class="party-status">READY</span>
-      </div>
-    `;
-    
-    if (!activeInstance.coopFriends) activeInstance.coopFriends = [];
-    
-    const quadClasses = ['.q-tr', '.q-br', '.q-bl'];
-    activeInstance.coopFriends.forEach((friend, idx) => {
-      if (idx < quadClasses.length) {
-        const path = ring.querySelector(quadClasses[idx]);
-        path.classList.add('active');
-        if (friend.status !== 'ready') {
-          path.style.opacity = '0.5';
-        } else {
-          path.style.opacity = '1';
-        }
-      }
+    if (activeInstance.lobbyId) {
+      if (unsubscribeLobby) unsubscribeLobby();
       
-      let friendAvatar = friend.avatarType === 'custom' && friend.avatarData ?
-        `<img src="${friend.avatarData}" style="width:100%; height:100%; object-fit:cover;">` :
-        (AVATAR_PRESETS[friend.avatarClass] || '⚔️');
+      let prevMemberCount = 0;
+      unsubscribeLobby = onSnapshot(doc(db, 'lobbies', activeInstance.lobbyId), (lobbySnap) => {
+        if (!lobbySnap.exists()) return;
+        const lobbyData = lobbySnap.data();
+        const members = lobbyData.members || [];
         
-      const statusText = friend.status === 'ready' ? 'READY' : 'PENDING...';
-      const statusClass = friend.status === 'ready' ? 'party-status' : 'party-status pending';
-      
-      partyList.innerHTML += `
-        <div class="party-member">
-          <div class="party-avatar">${friendAvatar}</div>
-          <span class="party-name">${friend.name}</span>
-          <span class="${statusClass}">${statusText}</span>
-        </div>
-      `;
-    });
-    
-    const currentPartySize = 1 + activeInstance.coopFriends.length;
-    document.getElementById('ring-party-size').textContent = `${currentPartySize}/${maxParty}`;
-    
-    if (currentPartySize >= maxParty && activeInstance.coopFriends.every(f => f.status === 'ready')) {
-      ring.classList.add('lobby-full');
+        activeInstance.coopFriends = members.filter(m => m.uid !== currentUser.uid).map(m => ({
+          uid: m.uid,
+          name: m.name,
+          avatarType: m.avatarType,
+          avatarClass: m.avatarClass,
+          avatarData: m.avatarData,
+          status: m.status
+        }));
+        saveToLocalStorage();
+        
+        if (members.length > prevMemberCount && prevMemberCount > 0) {
+          playSound('xboxConnect');
+        }
+        prevMemberCount = members.length;
+        
+        drawFellowshipRing(activeInstance);
+      });
+    } else {
+      drawFellowshipRing(activeInstance);
     }
     
     actionBtn.textContent = 'COMPLETE QUEST ✓';
     actionBtn.className = 'stone-button success-btn';
     actionBtn.onclick = () => {
       completeQuest(activeInstance.id);
-      document.getElementById('quest-codex-modal').classList.remove('visible');
+      closeQuestCodex();
     };
     
-    if (currentPartySize < maxParty && friendsList.length > 0) {
-      inviteBtn.classList.remove('hidden');
+    if (inviteBtn) {
       inviteBtn.onclick = () => {
         openFriendPicker(activeInstance);
       };
-    } else {
-      inviteBtn.classList.add('hidden');
     }
     
-    const readyFriends = activeInstance.coopFriends.filter(f => f.status === 'ready');
-    if (readyFriends.length > 0) {
-      bonusRow.classList.remove('hidden');
-      document.getElementById('codex-bonus-xp').textContent = `+${Math.round(baseXP * 0.25)} XP`;
-    } else {
-      bonusRow.classList.add('hidden');
+    if (guildInviteBtn) {
+      guildInviteBtn.onclick = async () => {
+        playSound('success');
+        
+        let lobbyId = activeInstance.lobbyId;
+        if (!lobbyId) {
+          lobbyId = 'LB-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+          activeInstance.lobbyId = lobbyId;
+          saveToLocalStorage();
+          
+          try {
+            await setDoc(doc(db, 'lobbies', lobbyId), {
+              lobbyId: lobbyId,
+              hostUid: currentUser.uid,
+              hostName: characterState.nickname,
+              questId: activeInstance.id,
+              maxPartySize: maxParty,
+              members: [
+                {
+                  uid: currentUser.uid,
+                  name: characterState.nickname,
+                  avatarType: characterState.avatarType,
+                  avatarClass: characterState.avatarClass,
+                  avatarData: characterState.avatarData,
+                  status: 'ready'
+                }
+              ],
+              createdAt: Date.now()
+            });
+          } catch (err) {
+            console.error("Failed to create lobby document:", err);
+          }
+        }
+        
+        sendChatMessage(activeInstance.title, 'coop_invite', {
+          questId: activeInstance.id,
+          questIcon: activeInstance.icon,
+          difficulty: activeInstance.difficulty,
+          senderCode: friendCode,
+          lobbyId: lobbyId
+        });
+        
+        alert("Quest invite shared in Guild Chat!");
+        guildInviteBtn.classList.add('hidden');
+        
+        openQuestCodex(activeInstance, 'view-home');
+      };
     }
   } else {
     // Slot 1 (You) is active
@@ -1235,6 +2082,7 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
     document.getElementById('ring-party-size').textContent = `1/${maxParty}`;
     bonusRow.classList.add('hidden');
     inviteBtn.classList.add('hidden');
+    if (guildInviteBtn) guildInviteBtn.classList.add('hidden');
     
     actionBtn.textContent = 'ACCEPT QUEST';
     actionBtn.className = 'stone-button success-btn';
@@ -1254,7 +2102,7 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
       playSound('success');
       saveToLocalStorage();
       updateActiveQuestsUI();
-      document.getElementById('quest-codex-modal').classList.remove('visible');
+      closeQuestCodex();
       
       setTimeout(() => {
         openQuestCodex(newActive, 'view-home');
@@ -1875,11 +2723,12 @@ document.addEventListener('DOMContentLoaded', () => {
     playSound('click');
     document.getElementById('quest-codex-modal').classList.remove('visible');
   });
-
   document.getElementById('friend-profile-close').addEventListener('click', () => {
     playSound('click');
     document.getElementById('friend-profile-modal').classList.remove('visible');
-    document.getElementById('friends-modal').classList.add('visible');
+    if (friendProfileSourceView === 'friends') {
+      document.getElementById('friends-modal').classList.add('visible');
+    }
   });
 
   const removeFriendBtn = document.getElementById('btn-remove-friend');
@@ -1887,33 +2736,49 @@ document.addEventListener('DOMContentLoaded', () => {
     removeFriendBtn.addEventListener('click', async () => {
       const uid = removeFriendBtn.getAttribute('data-uid');
       const code = removeFriendBtn.getAttribute('data-code');
+      const action = removeFriendBtn.getAttribute('data-action') || 'remove';
       if (!code) return;
 
-      if (confirm(`Are you sure you want to remove this friend (${code})?`)) {
-        playSound('toggleOff');
-
-        // Unsubscribe from real-time listener if exists
-        if (uid && friendSubscriptions[uid]) {
-          try {
-            friendSubscriptions[uid]();
-          } catch (e) {
-            console.error(e);
-          }
-          delete friendSubscriptions[uid];
+      if (action === 'add') {
+        try {
+          playSound('success');
+          await addDoc(collection(db, 'users', uid, 'notifications'), {
+            type: 'friend_request',
+            senderCode: friendCode,
+            senderUid: currentUser.uid,
+            timestamp: Date.now(),
+            read: false
+          });
+          alert("Friend request sent to " + code + "!");
+          document.getElementById('friend-profile-modal').classList.remove('visible');
+        } catch (err) {
+          console.error(err);
+          alert("Failed to send friend request: " + err.message);
         }
+      } else {
+        if (confirm(`Are you sure you want to remove this friend (${code})?`)) {
+          playSound('toggleOff');
 
-        // Remove from list
-        friendsList = friendsList.filter(fr => fr.code !== code);
-        
-        // Save changes
-        saveToLocalStorage();
-        updateFriendsUI();
+          if (uid && friendSubscriptions[uid]) {
+            try {
+              friendSubscriptions[uid]();
+            } catch (e) {
+              console.error(e);
+            }
+            delete friendSubscriptions[uid];
+          }
 
-        // Close details modal and return to list modal
-        document.getElementById('friend-profile-modal').classList.remove('visible');
-        document.getElementById('friends-modal').classList.add('visible');
-        
-        alert("Friend removed successfully.");
+          friendsList = friendsList.filter(fr => fr.code !== code);
+          saveToLocalStorage();
+          updateFriendsUI();
+
+          document.getElementById('friend-profile-modal').classList.remove('visible');
+          if (friendProfileSourceView === 'friends') {
+            document.getElementById('friends-modal').classList.add('visible');
+          }
+          
+          alert("Friend removed successfully.");
+        }
       }
     });
   }
@@ -2112,6 +2977,10 @@ document.addEventListener('DOMContentLoaded', () => {
             await setDoc(doc(db, 'friendCodes', friendCode), { uid: user.uid });
           }
           
+          const newGuildId = data.guildId || '';
+          characterState.guildId = newGuildId;
+          handleGuildSubscription(newGuildId);
+
           updateProfileUI();
           updateActiveQuestsUI();
           updateFriendsUI();
@@ -2205,6 +3074,12 @@ document.addEventListener('DOMContentLoaded', () => {
       currentUser = null;
       document.getElementById('view-auth').classList.add('visible');
       
+      // Clean up active guild subscriptions on logout
+      if (unsubscribeGuild) { unsubscribeGuild(); unsubscribeGuild = null; }
+      if (unsubscribeGuildChat) { unsubscribeGuildChat(); unsubscribeGuildChat = null; }
+      if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); unsubscribeGuildLeaderboard = null; }
+      activeGuild = null;
+
       // Reset Auth Screens
       document.getElementById('auth-email-screen').classList.add('hidden');
       document.getElementById('auth-options-screen').classList.remove('hidden');
@@ -2216,4 +3091,143 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('auth-error-msg').classList.add('hidden');
     }
   });
+
+  // --- Guild DOM Event Listeners ---
+  const createCrestPresets = document.querySelectorAll('#guild-crest-presets .avatar-preset-btn');
+  createCrestPresets.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      playSound('click');
+      createCrestPresets.forEach(b => b.classList.remove('selected'));
+      e.currentTarget.classList.add('selected');
+    });
+  });
+
+  const editCrestPresets = document.querySelectorAll('#guild-edit-crest-presets .avatar-preset-btn');
+  editCrestPresets.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      playSound('click');
+      editCrestPresets.forEach(b => b.classList.remove('selected'));
+      e.currentTarget.classList.add('selected');
+    });
+  });
+
+  const btnGuildCreate = document.getElementById('btn-guild-create');
+  if (btnGuildCreate) {
+    btnGuildCreate.addEventListener('click', async () => {
+      const name = document.getElementById('guild-create-name').value;
+      const desc = document.getElementById('guild-create-desc').value;
+      const selectedBtn = document.querySelector('#guild-crest-presets .avatar-preset-btn.selected');
+      const crest = selectedBtn ? selectedBtn.getAttribute('data-crest') : '⚔️';
+      
+      await createGuild(name, desc, crest);
+      document.getElementById('guild-create-name').value = '';
+      document.getElementById('guild-create-desc').value = '';
+    });
+  }
+
+  const btnGuildJoin = document.getElementById('btn-guild-join');
+  if (btnGuildJoin) {
+    btnGuildJoin.addEventListener('click', async () => {
+      const code = document.getElementById('guild-join-code').value;
+      await joinGuild(code);
+      document.getElementById('guild-join-code').value = '';
+    });
+  }
+
+  const btnGuildLeave = document.getElementById('btn-guild-leave');
+  if (btnGuildLeave) {
+    btnGuildLeave.addEventListener('click', async () => {
+      await leaveGuild();
+    });
+  }
+
+  const btnGuildEdit = document.getElementById('btn-guild-edit');
+  if (btnGuildEdit) {
+    btnGuildEdit.addEventListener('click', () => {
+      if (!activeGuild) return;
+      playSound('modalOpen');
+      document.getElementById('guild-edit-desc-input').value = activeGuild.description || '';
+      
+      const editPresets = document.querySelectorAll('#guild-edit-crest-presets .avatar-preset-btn');
+      editPresets.forEach(btn => {
+        const isSelected = btn.getAttribute('data-crest') === activeGuild.crest;
+        btn.classList.toggle('selected', isSelected);
+      });
+      
+      document.getElementById('guild-edit-modal').classList.add('visible');
+    });
+  }
+
+  const btnGuildSaveEdit = document.getElementById('btn-guild-save-edit');
+  if (btnGuildSaveEdit) {
+    btnGuildSaveEdit.addEventListener('click', async () => {
+      const desc = document.getElementById('guild-edit-desc-input').value;
+      const selectedBtn = document.querySelector('#guild-edit-crest-presets .avatar-preset-btn.selected');
+      const crest = selectedBtn ? selectedBtn.getAttribute('data-crest') : '🛡️';
+      
+      await saveGuildEdit(desc, crest);
+      document.getElementById('guild-edit-modal').classList.remove('visible');
+    });
+  }
+
+  const btnGuildEditClose = document.getElementById('guild-edit-modal-close');
+  if (btnGuildEditClose) {
+    btnGuildEditClose.addEventListener('click', () => {
+      playSound('click');
+      document.getElementById('guild-edit-modal').classList.remove('visible');
+    });
+  }
+
+  const tabHome = document.getElementById('tab-guild-home');
+  const tabChat = document.getElementById('tab-guild-chat');
+  const homeContent = document.getElementById('guild-hub-home-content');
+  const chatContent = document.getElementById('guild-hub-chat-content');
+
+  if (tabHome && tabChat) {
+    tabHome.addEventListener('click', () => {
+      playSound('click');
+      tabHome.classList.add('active');
+      tabChat.classList.remove('active');
+      homeContent.classList.remove('hidden');
+      chatContent.classList.add('hidden');
+    });
+
+    tabChat.addEventListener('click', () => {
+      playSound('click');
+      tabChat.classList.add('active');
+      tabHome.classList.remove('active');
+      chatContent.classList.remove('hidden');
+      homeContent.classList.add('hidden');
+      
+      const chatFeed = document.getElementById('guild-chat-feed');
+      if (chatFeed) {
+        chatFeed.scrollTop = chatFeed.scrollHeight;
+      }
+      
+      const chatBadge = document.getElementById('guild-chat-badge');
+      if (chatBadge) chatBadge.classList.add('hidden');
+    });
+  }
+
+  const btnChatSend = document.getElementById('btn-guild-chat-send');
+  const chatInput = document.getElementById('guild-chat-input');
+
+  if (btnChatSend && chatInput) {
+    const handleSend = async () => {
+      const text = chatInput.value;
+      if (!text.trim()) return;
+      
+      playSound('click');
+      await sendChatMessage(text);
+      chatInput.value = '';
+      chatInput.focus();
+    };
+
+    btnChatSend.addEventListener('click', handleSend);
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleSend();
+      }
+    });
+  }
 });

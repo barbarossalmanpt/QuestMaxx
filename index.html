@@ -180,6 +180,7 @@
       <div class="codex-actions">
         <button id="btn-codex-action" class="stone-button success-btn">ACCEPT QUEST</button>
         <button id="btn-codex-invite" class="stone-button small-btn hidden">INVITE PARTY</button>
+        <button id="btn-codex-guild-invite" class="stone-button small-btn hidden" style="border-color: var(--neon-purple); color: var(--text-main); margin-left: 5px;">INVITE GUILD</button>
       </div>
       <button id="quest-codex-close" class="choice-close-btn">✕ CLOSE</button>
     </div>
@@ -243,6 +244,35 @@
         </div>
       </div>
       <button id="friend-picker-close" class="choice-close-btn">✕ CANCEL</button>
+    </div>
+  </div>
+
+  <!-- Guild Edit Modal (Overlay) -->
+  <div id="guild-edit-modal" class="choice-overlay">
+    <div class="choice-modal friends-modal-content">
+      <h2 class="choice-modal-title">EDIT GUILD</h2>
+      
+      <div class="profile-card" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; border-color: var(--gold-primary);">
+        <input type="text" id="guild-edit-desc-input" placeholder="NEW DESCRIPTION" maxlength="40" class="retro-input" style="width: 100%;">
+        
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <span class="edit-hint" style="text-align: center;">SELECT NEW CREST EMOJI</span>
+          <div class="avatar-presets" id="guild-edit-crest-presets" style="justify-content: center; gap: 5px;">
+            <button class="avatar-preset-btn" data-crest="⚔️">⚔️</button>
+            <button class="avatar-preset-btn" data-crest="🏰">🏰</button>
+            <button class="avatar-preset-btn" data-crest="🔮">🔮</button>
+            <button class="avatar-preset-btn" data-crest="👑">👑</button>
+            <button class="avatar-preset-btn" data-crest="🐉">🐉</button>
+            <button class="avatar-preset-btn" data-crest="🛡️">🛡️</button>
+            <button class="avatar-preset-btn" data-crest="🏆">🏆</button>
+            <button class="avatar-preset-btn" data-crest="🍻">🍻</button>
+          </div>
+        </div>
+
+        <button id="btn-guild-save-edit" class="stone-button success-btn" style="width: 100%; margin-top: 5px; padding: 10px 0;">SAVE CHANGES</button>
+      </div>
+
+      <button id="guild-edit-modal-close" class="choice-close-btn">✕ CANCEL</button>
     </div>
   </div>
 
@@ -437,12 +467,118 @@
 
     </section>
 
-    <!-- Right Panel (Locked) -->
-    <section class="panel panel-right locked-panel">
-      <div class="locked-content">
-        <div class="padlock-icon">🔒</div>
-        <h2>LEADERBOARD</h2>
-        <p class="coming-soon">COMING SOON</p>
+    <!-- Right Panel (Guild) -->
+    <section class="panel panel-right" id="guild-panel">
+      <!-- Screen A: No Guild View (Visible when user has no guildId) -->
+      <div id="view-guild-none" class="view active-view" style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
+        <div class="banner-plaque small-banner">
+          <h2 class="app-title">ADVENTURER GUILD</h2>
+        </div>
+
+        <div class="profile-card" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; border-color: var(--neon-purple);">
+          <h3 class="ledger-title" style="color: var(--gold-primary); text-align: center;">CREATE A GUILD</h3>
+          <input type="text" id="guild-create-name" placeholder="GUILD NAME" maxlength="15" class="retro-input" style="width: 100%;">
+          <input type="text" id="guild-create-desc" placeholder="DESCRIPTION" maxlength="40" class="retro-input" style="width: 100%;">
+          
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <span class="edit-hint" style="text-align: center;">SELECT CREST EMOJI</span>
+            <div class="avatar-presets" id="guild-crest-presets" style="justify-content: center; gap: 5px;">
+              <button class="avatar-preset-btn selected" data-crest="⚔️">⚔️</button>
+              <button class="avatar-preset-btn" data-crest="🏰">🏰</button>
+              <button class="avatar-preset-btn" data-crest="🔮">🔮</button>
+              <button class="avatar-preset-btn" data-crest="👑">👑</button>
+              <button class="avatar-preset-btn" data-crest="🐉">🐉</button>
+              <button class="avatar-preset-btn" data-crest="🛡️">🛡️</button>
+              <button class="avatar-preset-btn" data-crest="🏆">🏆</button>
+              <button class="avatar-preset-btn" data-crest="🍻">🍻</button>
+            </div>
+          </div>
+
+          <button id="btn-guild-create" class="stone-button success-btn" style="width: 100%; margin-top: 5px; padding: 10px 0;">CREATE GUILD</button>
+        </div>
+
+        <div class="profile-card" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; border-color: var(--neon-purple);">
+          <h3 class="ledger-title" style="color: var(--gold-primary); text-align: center;">JOIN BY CODE</h3>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="guild-join-code" placeholder="GUILD CODE" maxlength="7" class="retro-input" style="flex: 1; text-transform: uppercase;">
+            <button id="btn-guild-join" class="stone-button" style="padding: 0 15px;">JOIN</button>
+          </div>
+        </div>
+
+        <div class="ledger-container">
+          <h3 class="ledger-title">🏰 PUBLIC GUILDS</h3>
+          <div id="public-guilds-list" class="ledger-list" style="max-height: 250px; overflow-y: auto;">
+            <!-- Populated via JS -->
+            <p class="empty-journal-msg" style="text-align: center; padding: 15px;">No active guilds. Be the first to create one!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screen B: Guild Hub View (Visible when user has a guildId) -->
+      <div id="view-guild-hub" class="view hidden-view" style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
+        <!-- Clash Royale-Style Tabs -->
+        <div class="filter-tabs" style="margin-bottom: 5px;">
+          <button class="tab-btn active" id="tab-guild-home" style="flex: 1;">🛡️ GUILD</button>
+          <button class="tab-btn" id="tab-guild-chat" style="flex: 1; position: relative;">
+            💬 CHAT
+            <span id="guild-chat-badge" class="badge hidden" style="top:-3px; right:10px;"></span>
+          </button>
+        </div>
+
+        <!-- Tab 1 CONTENT: Guild Hub Home (Crest Card + Leaderboard) -->
+        <div id="guild-hub-home-content" style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
+          
+          <!-- Clash Royale Guild Profile Card -->
+          <div class="profile-card" style="padding: 15px; position: relative; border-color: var(--gold-primary);">
+            <div style="display: flex; gap: 15px; align-items: center;">
+              <!-- Large Crest Badge on Left -->
+              <div class="avatar-container" style="margin-bottom: 0;">
+                <div class="avatar-frame" style="width: 65px; height: 65px; border-color: var(--gold-primary); background: var(--bg-deep);">
+                  <span id="guild-hub-crest" style="font-size: 2.2rem; display: flex; align-items: center; justify-content: center; height: 100%;">🛡️</span>
+                </div>
+              </div>
+              
+              <!-- Guild Name & Description on Right -->
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                <h2 id="guild-hub-name" style="font-family: var(--font-title); font-size: 0.95rem; color: var(--gold-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">GUILD NAME</h2>
+                <p id="guild-hub-desc" style="font-size: 0.85rem; color: var(--text-dim); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; line-height: 1.1;">Guild description goes here.</p>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-main); margin-top: 3px;">
+                  <span>CODE: <strong id="guild-hub-code" style="color: var(--gold-bright);">GD-XXXX</strong></span>
+                  <span>MEMBERS: <strong id="guild-hub-count" style="color: var(--emerald);">1/30</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Leader Actions Panel (Edit/Kick triggers) -->
+            <div id="guild-leader-actions" style="margin-top: 10px; display: flex; gap: 10px;" class="hidden">
+              <button id="btn-guild-edit" class="stone-button small-btn" style="flex: 1; font-size: 0.65rem; padding: 4px;">EDIT DETAILS</button>
+            </div>
+            
+            <button id="btn-guild-leave" class="stone-button small-btn" style="margin-top: 10px; width: 100%; border-color: #e74c3c; color: #e74c3c; padding: 6px 0; font-size: 0.75rem;">LEAVE GUILD</button>
+          </div>
+
+          <!-- Clan Member Leaderboard -->
+          <div class="ledger-container">
+            <h3 class="ledger-title">🏆 MEMBERS SCOREBOARD</h3>
+            <div id="guild-leaderboard-list" class="ledger-list">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2 CONTENT: Guild Chat Board -->
+        <div id="guild-hub-chat-content" class="hidden" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+          <div class="friends-list-container" style="height: 380px; background: var(--bg-deep); border: 2px solid var(--neon-purple); border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); overflow: hidden; display: flex; flex-direction: column;">
+            <div id="guild-chat-feed" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+              <!-- Chat messages list -->
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="guild-chat-input" placeholder="TYPE MESSAGE..." class="retro-input" style="flex: 1;" maxlength="100">
+            <button id="btn-guild-chat-send" class="stone-button success-btn" style="padding: 0 15px;">SEND</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -456,6 +592,6 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=3.0"></script>
+  <script type="module" src="app.js?v=3.1"></script>
 </body>
 </html>

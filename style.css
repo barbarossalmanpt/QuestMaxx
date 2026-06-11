@@ -1591,4 +1591,191 @@ body::before {
   align-items: center;
 }
 
+/* --- Guild Panel & Chat Styles --- */
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--metal-iron);
+  border-radius: 4px;
+  margin-bottom: 6px;
+  max-width: 90%;
+  width: fit-content;
+}
+
+.chat-msg.self {
+  align-self: flex-end;
+  background: var(--panel-bg);
+  border-color: var(--neon-purple);
+}
+
+.chat-msg.system {
+  align-self: center;
+  background: rgba(244, 196, 48, 0.1);
+  border: 1px dashed var(--gold-primary);
+  color: var(--gold-bright);
+  font-size: 0.85rem;
+  max-width: 100%;
+  width: 100%;
+  text-align: center;
+  padding: 6px;
+}
+
+.chat-msg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+
+.chat-msg-sender {
+  color: var(--gold-bright);
+  font-weight: bold;
+}
+
+.chat-msg-time {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.chat-msg-text {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.chat-quest-card {
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--gold-primary);
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 240px;
+}
+
+.chat-quest-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-quest-icon {
+  font-size: 1.5rem;
+}
+
+.chat-quest-title {
+  font-family: var(--font-title);
+  font-size: 0.7rem;
+  color: var(--text-main);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.chat-quest-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.chat-quest-join-btn {
+  width: 100%;
+  padding: 6px 0;
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+}
+
+/* Leaderboard enhancements in Guild view */
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(244, 196, 48, 0.15);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.leaderboard-row:hover {
+  background: rgba(244, 196, 48, 0.05);
+}
+
+.leaderboard-row:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-row.current-user {
+  background: rgba(155, 89, 182, 0.15);
+  border-left: 3px solid var(--neon-purple);
+}
+
+.leaderboard-member-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.leaderboard-rank {
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  color: var(--gold-primary);
+  width: 20px;
+  text-align: center;
+}
+
+.leaderboard-name {
+  color: var(--text-main);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.leaderboard-xp-val {
+  color: var(--gold-bright);
+}
+
+.guild-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(155, 89, 182, 0.2);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.guild-list-item:hover {
+  background: rgba(155, 89, 182, 0.1);
+}
+
+.guild-list-item:last-child {
+  border-bottom: none;
+}
+
+.member-kick-btn {
+  background: none;
+  border: 1px solid #e74c3c;
+  color: #e74c3c;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  cursor: pointer;
+  margin-left: 10px;
+  transition: all 0.2s;
+}
+
+.member-kick-btn:hover {
+  background: #e74c3c;
+  color: #fff;
+}
+
 
