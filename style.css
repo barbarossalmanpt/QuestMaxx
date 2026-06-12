@@ -1747,7 +1747,7 @@ body::before {
   color: var(--gold-bright);
 }
 
-.guild-list-item {
+.tavern-list-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1757,11 +1757,11 @@ body::before {
   transition: background 0.2s;
 }
 
-.guild-list-item:hover {
+.tavern-list-item:hover {
   background: rgba(155, 89, 182, 0.1);
 }
 
-.guild-list-item:last-child {
+.tavern-list-item:last-child {
   border-bottom: none;
 }
 
@@ -1780,6 +1780,173 @@ body::before {
 .member-kick-btn:hover {
   background: #e74c3c;
   color: #fff;
+}
+
+/* --- Tavern Panel & Chat Overhaul --- */
+#tavern-panel {
+  overflow-y: hidden !important; /* Lock panel scroll */
+  padding-bottom: 20px;
+}
+
+#view-tavern-hub {
+  height: calc(100vh - 120px) !important;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+#tavern-hub-home-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+#tavern-leaderboard-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - 360px);
+}
+
+#tavern-hub-chat-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.tavern-chat-container {
+  flex: 1;
+  min-height: 0;
+  background: rgba(15, 8, 30, 0.6);
+  border: 3px solid var(--neon-purple);
+  border-radius: 8px;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+#tavern-chat-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: radial-gradient(circle at center, rgba(30, 20, 50, 0.4), rgba(10, 5, 20, 0.8));
+}
+
+/* --- Clash Royale-Style Speech Bubbles --- */
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #2a1b4e, #1a0f35);
+  border: 2px solid var(--metal-iron);
+  border-radius: 14px 14px 14px 2px; /* speech bubble style for others */
+  margin-bottom: 8px;
+  max-width: 80%;
+  width: fit-content;
+  align-self: flex-start;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  position: relative;
+}
+
+.chat-msg.self {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #4f2d7a, #321850);
+  border-color: var(--neon-purple);
+  border-radius: 14px 14px 2px 14px; /* speech bubble style for self */
+  box-shadow: 0 4px 6px rgba(155, 89, 182, 0.15);
+}
+
+.chat-msg.system {
+  align-self: center;
+  background: rgba(244, 196, 48, 0.08);
+  border: 1px dashed rgba(244, 196, 48, 0.4);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  font-size: 0.8rem;
+  max-width: 95%;
+  width: 95%;
+  text-align: center;
+  padding: 8px 12px;
+  box-shadow: none;
+  font-family: var(--font-title);
+  line-height: 1.3;
+}
+
+.chat-msg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.chat-msg-sender {
+  color: var(--gold-bright);
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+}
+
+.chat-msg.self .chat-msg-sender {
+  color: #a29bfe;
+}
+
+.chat-msg-role-badge {
+  font-size: 0.55rem;
+  font-family: var(--font-title);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.chat-msg-role-badge.leader {
+  background: var(--gold-primary);
+  color: #1a0f35;
+  box-shadow: 0 0 5px rgba(244, 196, 48, 0.5);
+}
+
+.chat-msg-role-badge.member {
+  background: var(--metal-iron);
+  color: var(--text-main);
+}
+
+.chat-msg-time {
+  font-size: 0.6rem;
+  opacity: 0.6;
+}
+
+.chat-msg-avatar-icon {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-msg-mini-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--metal-iron);
+}
+
+.chat-msg-text {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 

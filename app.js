@@ -1,7 +1,7 @@
 import { QUESTS } from './quests.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // --- Global State ---
 let isMuted = false;
@@ -18,7 +18,7 @@ let characterState = {
   avatarData: '', // base64 URL for custom upload
   xp: 0,
   level: 1,
-  guildId: ''
+  tavernId: ''
 };
 let activeQuests = []; // max 3 active quests
 let completedQuests = []; // history of { questId, title, completedAt, xpEarned }
@@ -52,6 +52,14 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code == 'failed-precondition') {
+    console.warn("Firestore offline persistence failed-precondition (multiple tabs open)");
+  } else if (err.code == 'unimplemented') {
+    console.warn("Firestore offline persistence unimplemented by current browser");
+  }
+});
+
 let currentUser = null;
 let unsubscribeUser = null;
 let unsubscribeNotifications = null;
@@ -62,11 +70,11 @@ let friendDataCache = {};
 let friendProfileSourceView = 'friends';
 let toastedNotificationIds = new Set();
 
-// --- Guilds State ---
-let activeGuild = null;
-let unsubscribeGuild = null;
-let unsubscribeGuildChat = null;
-let unsubscribeGuildLeaderboard = null;
+// --- Taverns State ---
+let activeTavern = null;
+let unsubscribeTavern = null;
+let unsubscribeTavernChat = null;
+let unsubscribeTavernLeaderboard = null;
 
 // --- Initialize user document structure in Firestore ---
 async function initializeUserDocument(user, customData = {}) {
@@ -94,7 +102,7 @@ async function initializeUserDocument(user, customData = {}) {
     friendsList: [],
     activeQuests: [],
     completedQuests: [],
-    guildId: ''
+    tavernId: ''
   };
 
   const finalData = { ...defaults, ...customData };
@@ -144,7 +152,7 @@ async function saveToFirestore() {
       friendsList: friendsList,
       activeQuests: activeQuests,
       completedQuests: completedQuests,
-      guildId: characterState.guildId || ''
+      tavernId: characterState.tavernId || ''
     });
   } catch (err) {
     console.error("Error saving to Firestore:", err);
@@ -344,6 +352,32 @@ function switchView(targetViewId) {
   if (target) target.classList.replace('hidden-view', 'active-view');
   
   currentView = targetViewId;
+  updateHeaderButtonsVisibility();
+}
+
+function updateHeaderButtonsVisibility() {
+  const swipeContainer = document.querySelector('.swipe-container');
+  const btnFriends = document.getElementById('btn-friends-list');
+  const btnNoti = document.getElementById('btn-notification');
+  if (!swipeContainer || !btnFriends || !btnNoti) return;
+
+  const scrollPos = swipeContainer.scrollLeft;
+  const width = swipeContainer.clientWidth;
+  
+  // Guard against divide by zero or clientWidth not loaded yet
+  if (width === 0) return;
+  
+  const panelIndex = Math.round(scrollPos / width);
+
+  // Show only if panelIndex === 1 (center panel) AND currentView === 'view-home'
+  const shouldShow = (panelIndex === 1 && currentView === 'view-home');
+  if (shouldShow) {
+    btnFriends.classList.remove('hidden');
+    btnNoti.classList.remove('hidden');
+  } else {
+    btnFriends.classList.add('hidden');
+    btnNoti.classList.add('hidden');
+  }
 }
 
 // --- Wizard Data ---
@@ -769,16 +803,16 @@ function completeQuest(questId) {
     didLevelUp = true;
   }
 
-  // Post system message to guild chat if in a guild
-  if (currentUser && characterState.guildId) {
+  // Post system message to tavern chat if in a tavern
+  if (currentUser && characterState.tavernId) {
     try {
-      addDoc(collection(db, 'guilds', characterState.guildId, 'chat'), {
+      addDoc(collection(db, 'taverns', characterState.tavernId, 'chat'), {
         text: `🛡️ ${characterState.nickname} completed the quest "${quest.title}" (+${xpReward} XP)!`,
         type: 'system',
         timestamp: Date.now()
       });
     } catch(e) {
-      console.warn("Failed to post quest completion to guild chat", e);
+      console.warn("Failed to post quest completion to tavern chat", e);
     }
   }
 
@@ -786,15 +820,15 @@ function completeQuest(questId) {
     playSound('levelUp');
     alert(`🎉 LEVEL UP! You reached Level ${characterState.level}!`);
     
-    if (currentUser && characterState.guildId) {
+    if (currentUser && characterState.tavernId) {
       try {
-        addDoc(collection(db, 'guilds', characterState.guildId, 'chat'), {
+        addDoc(collection(db, 'taverns', characterState.tavernId, 'chat'), {
           text: `🎉 ${characterState.nickname} leveled up to Level ${characterState.level}!`,
           type: 'system',
           timestamp: Date.now()
         });
       } catch(e) {
-        console.warn("Failed to post level up to guild chat", e);
+        console.warn("Failed to post level up to tavern chat", e);
       }
     }
   } else {
@@ -1094,20 +1128,20 @@ function showFriendProfile(friend) {
   document.getElementById('friend-profile-modal').classList.add('visible');
 }
 
-// --- Guild / Clans Logic ---
+// --- Tavern / Clans Logic ---
 
-async function createGuild(name, desc, crest) {
+async function createTavern(name, desc, crest) {
   if (!name.trim()) {
-    alert("Guild Name cannot be empty!");
+    alert("Tavern Name cannot be empty!");
     return;
   }
   
   try {
     playSound('success');
-    const tempCode = 'GD-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const tempCode = 'TV-' + Math.random().toString(36).substring(2, 6).toUpperCase();
     
-    // 1. Create Guild Document
-    const guildRef = await addDoc(collection(db, 'guilds'), {
+    // 1. Create Tavern Document
+    const tavernRef = await addDoc(collection(db, 'taverns'), {
       name: name.trim().toUpperCase(),
       description: desc.trim(),
       crest: crest,
@@ -1117,156 +1151,156 @@ async function createGuild(name, desc, crest) {
       createdAt: Date.now()
     });
     
-    const guildId = guildRef.id;
+    const tavernId = tavernRef.id;
     
     // 2. Post a system message in the subcollection chat
-    await addDoc(collection(db, 'guilds', guildId, 'chat'), {
-      text: `🏰 Guild "${name.trim().toUpperCase()}" has been created by ${characterState.nickname}!`,
+    await addDoc(collection(db, 'taverns', tavernId, 'chat'), {
+      text: `🏰 Tavern "${name.trim().toUpperCase()}" has been created by ${characterState.nickname}!`,
       type: 'system',
       timestamp: Date.now()
     });
     
-    // 3. Update User document with guildId
-    characterState.guildId = guildId;
+    // 3. Update User document with tavernId
+    characterState.tavernId = tavernId;
     saveToLocalStorage(); // Sync back to Firestore
     
-    alert(`Guild "${name.trim().toUpperCase()}" created successfully! Code: ${tempCode}`);
+    alert(`Tavern "${name.trim().toUpperCase()}" created successfully! Code: ${tempCode}`);
   } catch (err) {
-    console.error("Error creating guild:", err);
-    alert("Failed to create guild: " + err.message);
+    console.error("Error creating tavern:", err);
+    alert("Failed to create tavern: " + err.message);
   }
 }
 
-async function joinGuild(code) {
+async function joinTavern(code) {
   const cleanCode = code.trim().toUpperCase();
   if (!cleanCode) return;
   
   try {
-    const q = query(collection(db, 'guilds'), where('code', '==', cleanCode));
+    const q = query(collection(db, 'taverns'), where('code', '==', cleanCode));
     const querySnap = await getDocs(q);
     
     if (querySnap.empty) {
-      alert("Guild Code not found!");
+      alert("Tavern Code not found!");
       return;
     }
     
-    const guildDoc = querySnap.docs[0];
-    const gData = guildDoc.data();
+    const tavernDoc = querySnap.docs[0];
+    const gData = tavernDoc.data();
     
     if (gData.members.length >= 30) {
-      alert("This guild is full (max 30 members)!");
+      alert("This tavern is full (max 30 members)!");
       return;
     }
     
     if (gData.members.includes(currentUser.uid)) {
-      alert("You are already in this guild!");
+      alert("You are already in this tavern!");
       return;
     }
     
     playSound('success');
     
     // 1. Add to members list
-    await updateDoc(doc(db, 'guilds', guildDoc.id), {
+    await updateDoc(doc(db, 'taverns', tavernDoc.id), {
       members: arrayUnion(currentUser.uid)
     });
     
     // 2. Post system message
-    await addDoc(collection(db, 'guilds', guildDoc.id, 'chat'), {
-      text: `🚪 ${characterState.nickname} joined the guild!`,
+    await addDoc(collection(db, 'taverns', tavernDoc.id, 'chat'), {
+      text: `🚪 ${characterState.nickname} joined the tavern!`,
       type: 'system',
       timestamp: Date.now()
     });
     
     // 3. Update User doc
-    characterState.guildId = guildDoc.id;
+    characterState.tavernId = tavernDoc.id;
     saveToLocalStorage();
     
     alert(`Joined "${gData.name}" successfully!`);
   } catch (err) {
-    console.error("Error joining guild:", err);
-    alert("Failed to join guild: " + err.message);
+    console.error("Error joining tavern:", err);
+    alert("Failed to join tavern: " + err.message);
   }
 }
 
-async function leaveGuild() {
-  if (!activeGuild) return;
+async function leaveTavern() {
+  if (!activeTavern) return;
   
-  if (confirm(`Are you sure you want to leave "${activeGuild.name}"?`)) {
+  if (confirm(`Are you sure you want to leave "${activeTavern.name}"?`)) {
     try {
       playSound('toggleOff');
-      const gId = activeGuild.id;
+      const gId = activeTavern.id;
       
       // If owner, check if we must delete or transfer ownership
-      if (activeGuild.ownerUid === currentUser.uid) {
-        const nextOwner = activeGuild.members.find(m => m !== currentUser.uid);
+      if (activeTavern.ownerUid === currentUser.uid) {
+        const nextOwner = activeTavern.members.find(m => m !== currentUser.uid);
         if (nextOwner) {
-          await updateDoc(doc(db, 'guilds', gId), {
+          await updateDoc(doc(db, 'taverns', gId), {
             ownerUid: nextOwner,
             members: arrayRemove(currentUser.uid)
           });
           
-          await addDoc(collection(db, 'guilds', gId, 'chat'), {
-            text: `🚪 Leader ${characterState.nickname} left the guild. ${friendDataCache[nextOwner]?.nickname || 'A member'} is the new Leader!`,
+          await addDoc(collection(db, 'taverns', gId, 'chat'), {
+            text: `🚪 Leader ${characterState.nickname} left the tavern. ${friendDataCache[nextOwner]?.nickname || 'A member'} is the new Leader!`,
             type: 'system',
             timestamp: Date.now()
           });
         } else {
           // Delete completely if no one left
-          await deleteDoc(doc(db, 'guilds', gId));
+          await deleteDoc(doc(db, 'taverns', gId));
         }
       } else {
         // Not owner, just remove from members
-        await updateDoc(doc(db, 'guilds', gId), {
+        await updateDoc(doc(db, 'taverns', gId), {
           members: arrayRemove(currentUser.uid)
         });
         
-        await addDoc(collection(db, 'guilds', gId, 'chat'), {
-          text: `🚪 ${characterState.nickname} left the guild.`,
+        await addDoc(collection(db, 'taverns', gId, 'chat'), {
+          text: `🚪 ${characterState.nickname} left the tavern.`,
           type: 'system',
           timestamp: Date.now()
         });
       }
       
       // Clean up subscriptions
-      if (unsubscribeGuild) { unsubscribeGuild(); unsubscribeGuild = null; }
-      if (unsubscribeGuildChat) { unsubscribeGuildChat(); unsubscribeGuildChat = null; }
-      if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); unsubscribeGuildLeaderboard = null; }
-      activeGuild = null;
+      if (unsubscribeTavern) { unsubscribeTavern(); unsubscribeTavern = null; }
+      if (unsubscribeTavernChat) { unsubscribeTavernChat(); unsubscribeTavernChat = null; }
+      if (unsubscribeTavernLeaderboard) { unsubscribeTavernLeaderboard(); unsubscribeTavernLeaderboard = null; }
+      activeTavern = null;
       
       // Update User doc
-      characterState.guildId = '';
+      characterState.tavernId = '';
       saveToLocalStorage();
       
       // Reset UI
-      document.getElementById('view-guild-hub').classList.add('hidden-view');
-      document.getElementById('view-guild-hub').classList.remove('active-view');
-      document.getElementById('view-guild-none').classList.add('active-view');
-      document.getElementById('view-guild-none').classList.remove('hidden-view');
+      document.getElementById('view-tavern-hub').classList.add('hidden-view');
+      document.getElementById('view-tavern-hub').classList.remove('active-view');
+      document.getElementById('view-tavern-none').classList.add('active-view');
+      document.getElementById('view-tavern-none').classList.remove('hidden-view');
       
-      renderPublicGuildsList();
-      alert("Left the guild.");
+      renderPublicTavernsList();
+      alert("Left the tavern.");
     } catch (err) {
-      console.error("Error leaving guild:", err);
-      alert("Failed to leave guild: " + err.message);
+      console.error("Error leaving tavern:", err);
+      alert("Failed to leave tavern: " + err.message);
     }
   }
 }
 
-async function kickGuildMember(memberUid, memberName) {
-  if (!activeGuild || activeGuild.ownerUid !== currentUser.uid) return;
+async function kickTavernMember(memberUid, memberName) {
+  if (!activeTavern || activeTavern.ownerUid !== currentUser.uid) return;
   
-  if (confirm(`🛡️ Leader Action: Are you sure you want to kick ${memberName} from the guild?`)) {
+  if (confirm(`🛡️ Leader Action: Are you sure you want to kick ${memberName} from the tavern?`)) {
     try {
       playSound('toggleOff');
       
-      // 1. Remove from guild document members array
-      await updateDoc(doc(db, 'guilds', activeGuild.id), {
+      // 1. Remove from tavern document members array
+      await updateDoc(doc(db, 'taverns', activeTavern.id), {
         members: arrayRemove(memberUid)
       });
       
       // 2. Post system chat message
-      await addDoc(collection(db, 'guilds', activeGuild.id, 'chat'), {
-        text: `🛡️ ${memberName} was kicked from the guild by Leader ${characterState.nickname}.`,
+      await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
+        text: `🛡️ ${memberName} was kicked from the tavern by Leader ${characterState.nickname}.`,
         type: 'system',
         timestamp: Date.now()
       });
@@ -1279,32 +1313,32 @@ async function kickGuildMember(memberUid, memberName) {
   }
 }
 
-async function saveGuildEdit(newDesc, newCrest) {
-  if (!activeGuild || activeGuild.ownerUid !== currentUser.uid) return;
+async function saveTavernEdit(newDesc, newCrest) {
+  if (!activeTavern || activeTavern.ownerUid !== currentUser.uid) return;
   
   try {
     playSound('success');
-    await updateDoc(doc(db, 'guilds', activeGuild.id), {
+    await updateDoc(doc(db, 'taverns', activeTavern.id), {
       description: newDesc.trim(),
       crest: newCrest
     });
     
-    await addDoc(collection(db, 'guilds', activeGuild.id, 'chat'), {
-      text: `🛡️ Guild details updated by Leader ${characterState.nickname}.`,
+    await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
+      text: `🛡️ Tavern details updated by Leader ${characterState.nickname}.`,
       type: 'system',
       timestamp: Date.now()
     });
   } catch (err) {
-    console.error("Error editing guild details:", err);
-    alert("Failed to save guild changes: " + err.message);
+    console.error("Error editing tavern details:", err);
+    alert("Failed to save tavern changes: " + err.message);
   }
 }
 
 async function sendChatMessage(text, type = 'chat', meta = null) {
-  if (!activeGuild || !text.trim()) return;
+  if (!activeTavern || !text.trim()) return;
   
   try {
-    await addDoc(collection(db, 'guilds', activeGuild.id, 'chat'), {
+    await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
       senderUid: currentUser.uid,
       senderName: characterState.nickname,
       senderAvatarClass: characterState.avatarClass,
@@ -1385,8 +1419,8 @@ async function joinQuestLobby(lobbyId, questId, hostName) {
     playSound('success');
     playSound('xboxConnect');
     
-    if (characterState.guildId) {
-      await addDoc(collection(db, 'guilds', characterState.guildId, 'chat'), {
+    if (characterState.tavernId) {
+      await addDoc(collection(db, 'taverns', characterState.tavernId, 'chat'), {
         text: `🎮 ${characterState.nickname} joined ${hostName}'s lobby for "${quest.title}"!`,
         type: 'system',
         timestamp: Date.now()
@@ -1446,72 +1480,72 @@ function joinQuestFromChat(questId, hostUid, hostName) {
   alert(`Joined ${hostName}'s Co-op Quest: "${quest.title}"!`);
 }
 
-function handleGuildSubscription(newGuildId) {
-  if (!newGuildId) {
-    // Unsubscribe from any active guild
-    if (unsubscribeGuild) { unsubscribeGuild(); unsubscribeGuild = null; }
-    if (unsubscribeGuildChat) { unsubscribeGuildChat(); unsubscribeGuildChat = null; }
-    if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); unsubscribeGuildLeaderboard = null; }
-    activeGuild = null;
+function handleTavernSubscription(newTavernId) {
+  if (!newTavernId) {
+    // Unsubscribe from any active tavern
+    if (unsubscribeTavern) { unsubscribeTavern(); unsubscribeTavern = null; }
+    if (unsubscribeTavernChat) { unsubscribeTavernChat(); unsubscribeTavernChat = null; }
+    if (unsubscribeTavernLeaderboard) { unsubscribeTavernLeaderboard(); unsubscribeTavernLeaderboard = null; }
+    activeTavern = null;
     
     // Toggle UI views
-    document.getElementById('view-guild-none').classList.add('active-view');
-    document.getElementById('view-guild-none').classList.remove('hidden-view');
-    document.getElementById('view-guild-hub').classList.add('hidden-view');
-    document.getElementById('view-guild-hub').classList.remove('active-view');
+    document.getElementById('view-tavern-none').classList.add('active-view');
+    document.getElementById('view-tavern-none').classList.remove('hidden-view');
+    document.getElementById('view-tavern-hub').classList.add('hidden-view');
+    document.getElementById('view-tavern-hub').classList.remove('active-view');
     
-    // Fetch public guilds list
-    renderPublicGuildsList();
+    // Fetch public taverns list
+    renderPublicTavernsList();
     return;
   }
   
-  // If we are already subscribed to this guild, do nothing
-  if (activeGuild && activeGuild.id === newGuildId) {
+  // If we are already subscribed to this tavern, do nothing
+  if (activeTavern && activeTavern.id === newTavernId) {
     return;
   }
   
-  // Otherwise, subscribe to the new guild!
-  if (unsubscribeGuild) { unsubscribeGuild(); }
-  if (unsubscribeGuildChat) { unsubscribeGuildChat(); }
-  if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); }
+  // Otherwise, subscribe to the new tavern!
+  if (unsubscribeTavern) { unsubscribeTavern(); }
+  if (unsubscribeTavernChat) { unsubscribeTavernChat(); }
+  if (unsubscribeTavernLeaderboard) { unsubscribeTavernLeaderboard(); }
   
-  // Show Guild Hub view
-  document.getElementById('view-guild-none').classList.add('hidden-view');
-  document.getElementById('view-guild-none').classList.remove('active-view');
-  document.getElementById('view-guild-hub').classList.add('active-view');
-  document.getElementById('view-guild-hub').classList.remove('hidden-view');
+  // Show Tavern Hub view
+  document.getElementById('view-tavern-none').classList.add('hidden-view');
+  document.getElementById('view-tavern-none').classList.remove('active-view');
+  document.getElementById('view-tavern-hub').classList.add('active-view');
+  document.getElementById('view-tavern-hub').classList.remove('hidden-view');
   
-  // 1. Subscribe to Guild Doc
-  unsubscribeGuild = onSnapshot(doc(db, 'guilds', newGuildId), async (guildSnap) => {
-    if (!guildSnap.exists()) {
-      // Guild was deleted, clean up our user reference
-      characterState.guildId = '';
+  // 1. Subscribe to Tavern Doc
+  unsubscribeTavern = onSnapshot(doc(db, 'taverns', newTavernId), async (tavernSnap) => {
+    if (!tavernSnap.exists()) {
+      // Tavern was deleted, clean up our user reference
+      characterState.tavernId = '';
       saveToLocalStorage();
       return;
     }
     
-    const gData = guildSnap.data();
-    activeGuild = { id: guildSnap.id, ...gData };
+    const gData = tavernSnap.data();
+    activeTavern = { id: tavernSnap.id, ...gData };
     
     // Check if we were kicked (not in members array anymore)
     if (!gData.members.includes(currentUser.uid)) {
       // Clean up our user reference
-      characterState.guildId = '';
+      characterState.tavernId = '';
       saveToLocalStorage();
-      alert("🛡️ Leader Action: You have been kicked from the guild.");
+      alert("🛡️ Leader Action: You have been kicked from the tavern.");
       return;
     }
     
-    // Render Guild Info in Hub Header
-    document.getElementById('guild-hub-crest').textContent = gData.crest || '🛡️';
-    document.getElementById('guild-hub-name').textContent = gData.name || 'GUILD';
-    document.getElementById('guild-hub-desc').textContent = gData.description || '';
-    document.getElementById('guild-hub-code').textContent = gData.code || '';
-    document.getElementById('guild-hub-count').textContent = `${gData.members.length}/30`;
+    // Render Tavern Info in Hub Header
+    document.getElementById('tavern-hub-crest').textContent = gData.crest || '🛡️';
+    document.getElementById('tavern-hub-name').textContent = gData.name || 'TAVERN';
+    document.getElementById('tavern-hub-desc').textContent = gData.description || '';
+    document.getElementById('tavern-hub-code').textContent = gData.code || '';
+    document.getElementById('tavern-hub-count').textContent = `${gData.members.length}/30`;
     
     // Toggle leader actions
     const isLeader = gData.ownerUid === currentUser.uid;
-    const actionsEl = document.getElementById('guild-leader-actions');
+    const actionsEl = document.getElementById('tavern-leader-actions');
     if (actionsEl) {
       if (isLeader) actionsEl.classList.remove('hidden');
       else actionsEl.classList.add('hidden');
@@ -1520,22 +1554,22 @@ function handleGuildSubscription(newGuildId) {
     // Subscribe to Leaderboard members updates
     subscribeToLeaderboard(gData.members);
   }, (err) => {
-    console.error("Guild snapshot error:", err);
+    console.error("Tavern snapshot error:", err);
   });
   
-  // 2. Subscribe to Guild Chat (last 50 messages)
+  // 2. Subscribe to Tavern Chat (last 50 messages)
   const chatQuery = query(
-    collection(db, 'guilds', newGuildId, 'chat'),
+    collection(db, 'taverns', newTavernId, 'chat'),
     orderBy('timestamp', 'asc'),
     limit(50)
   );
   
-  unsubscribeGuildChat = onSnapshot(chatQuery, (chatSnap) => {
-    const chatFeed = document.getElementById('guild-chat-feed');
+  unsubscribeTavernChat = onSnapshot(chatQuery, (chatSnap) => {
+    const chatFeed = document.getElementById('tavern-chat-feed');
     if (!chatFeed) return;
     
     // Check if we should notify user of new messages (if not currently looking at the chat tab)
-    const isChatTabActive = document.getElementById('tab-guild-chat').classList.contains('active');
+    const isChatTabActive = document.getElementById('tab-tavern-chat').classList.contains('active');
     
     // Save scroll position to auto-scroll if at bottom
     const wasAtBottom = chatFeed.scrollHeight - chatFeed.scrollTop <= chatFeed.clientHeight + 40;
@@ -1548,56 +1582,74 @@ function handleGuildSubscription(newGuildId) {
       if (msg.type === 'system') {
         item.className = 'chat-msg system';
         item.textContent = msg.text;
-      } else if (msg.type === 'coop_invite') {
-        item.className = 'chat-msg';
-        if (msg.senderUid === currentUser.uid) item.classList.add('self');
-        
-        const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const meta = msg.meta || {};
-        
-        item.innerHTML = `
-          <div class="chat-msg-header">
-            <span class="chat-msg-sender">${msg.senderName}</span>
-            <span class="chat-msg-time">${timeStr}</span>
-          </div>
-          <div class="chat-msg-text">Shared a Co-op Quest!</div>
-          <div class="chat-quest-card">
-            <div class="chat-quest-header">
-              <span class="chat-quest-icon">${meta.questIcon || '⚔️'}</span>
-              <span class="chat-quest-title" title="${msg.text}">${msg.text}</span>
-            </div>
-            <div class="chat-quest-meta">
-              <span>${'⚔️'.repeat(meta.difficulty || 1)}</span>
-              <span>Co-op Invite</span>
-            </div>
-            <button class="stone-button success-btn chat-quest-join-btn" data-id="${meta.questId}" data-sender-uid="${msg.senderUid}" data-sender-code="${meta.senderCode || ''}">JOIN LOBBY</button>
-          </div>
-        `;
-        
-        // Wire join event
-        const joinBtn = item.querySelector('.chat-quest-join-btn');
-        if (joinBtn) {
-          joinBtn.addEventListener('click', () => {
-            playSound('click');
-            if (meta.lobbyId) {
-              joinQuestLobby(meta.lobbyId, meta.questId, msg.senderName);
-            } else {
-              joinQuestFromChat(meta.questId, msg.senderUid, msg.senderName);
-            }
-          });
-        }
       } else {
-        item.className = 'chat-msg';
-        if (msg.senderUid === currentUser.uid) item.classList.add('self');
+        const isSenderLeader = activeTavern && msg.senderUid === activeTavern.ownerUid;
+        const roleHtml = isSenderLeader ? 
+          `<span class="chat-msg-role-badge leader">LEADER</span>` : 
+          `<span class="chat-msg-role-badge member">MEMBER</span>`;
+          
+        let avatarHtml = '';
+        if (msg.senderAvatarType === 'custom' && msg.senderAvatarData) {
+          avatarHtml = `<img src="${msg.senderAvatarData}" class="chat-msg-mini-avatar">`;
+        } else {
+          avatarHtml = `<span class="chat-msg-avatar-icon">${AVATAR_PRESETS[msg.senderAvatarClass] || '⚔️'}</span>`;
+        }
         
-        const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        item.innerHTML = `
-          <div class="chat-msg-header">
-            <span class="chat-msg-sender">${msg.senderName}</span>
-            <span class="chat-msg-time">${timeStr}</span>
-          </div>
-          <div class="chat-msg-text">${msg.text}</div>
-        `;
+        if (msg.type === 'coop_invite') {
+          item.className = 'chat-msg';
+          if (msg.senderUid === currentUser.uid) item.classList.add('self');
+          
+          const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const meta = msg.meta || {};
+          
+          item.innerHTML = `
+            <div class="chat-msg-header">
+              ${avatarHtml}
+              <span class="chat-msg-sender">${msg.senderName}</span>
+              ${roleHtml}
+              <span class="chat-msg-time">${timeStr}</span>
+            </div>
+            <div class="chat-msg-text">Shared a Co-op Quest!</div>
+            <div class="chat-quest-card">
+              <div class="chat-quest-header">
+                <span class="chat-quest-icon">${meta.questIcon || '⚔️'}</span>
+                <span class="chat-quest-title" title="${msg.text}">${msg.text}</span>
+              </div>
+              <div class="chat-quest-meta">
+                <span>${'⚔️'.repeat(meta.difficulty || 1)}</span>
+                <span>Co-op Invite</span>
+              </div>
+              <button class="stone-button success-btn chat-quest-join-btn" data-id="${meta.questId}" data-sender-uid="${msg.senderUid}" data-sender-code="${meta.senderCode || ''}">JOIN LOBBY</button>
+            </div>
+          `;
+          
+          // Wire join event
+          const joinBtn = item.querySelector('.chat-quest-join-btn');
+          if (joinBtn) {
+            joinBtn.addEventListener('click', () => {
+              playSound('click');
+              if (meta.lobbyId) {
+                joinQuestLobby(meta.lobbyId, meta.questId, msg.senderName);
+              } else {
+                joinQuestFromChat(meta.questId, msg.senderUid, msg.senderName);
+              }
+            });
+          }
+        } else {
+          item.className = 'chat-msg';
+          if (msg.senderUid === currentUser.uid) item.classList.add('self');
+          
+          const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          item.innerHTML = `
+            <div class="chat-msg-header">
+              ${avatarHtml}
+              <span class="chat-msg-sender">${msg.senderName}</span>
+              ${roleHtml}
+              <span class="chat-msg-time">${timeStr}</span>
+            </div>
+            <div class="chat-msg-text">${msg.text}</div>
+          `;
+        }
       }
       chatFeed.appendChild(item);
     });
@@ -1610,8 +1662,8 @@ function handleGuildSubscription(newGuildId) {
 }
 
 function subscribeToLeaderboard(memberUids) {
-  if (unsubscribeGuildLeaderboard) {
-    unsubscribeGuildLeaderboard();
+  if (unsubscribeTavernLeaderboard) {
+    unsubscribeTavernLeaderboard();
   }
   
   if (!memberUids || memberUids.length === 0) return;
@@ -1621,8 +1673,8 @@ function subscribeToLeaderboard(memberUids) {
     where('__name__', 'in', memberUids.slice(0, 30))
   );
   
-  unsubscribeGuildLeaderboard = onSnapshot(q, (snapshot) => {
-    const leaderboardList = document.getElementById('guild-leaderboard-list');
+  unsubscribeTavernLeaderboard = onSnapshot(q, (snapshot) => {
+    const leaderboardList = document.getElementById('tavern-leaderboard-list');
     if (!leaderboardList) return;
     
     const membersData = [];
@@ -1665,7 +1717,7 @@ function subscribeToLeaderboard(memberUids) {
       }
       
       let kickHtml = '';
-      if (activeGuild && activeGuild.ownerUid === currentUser.uid && m.uid !== currentUser.uid) {
+      if (activeTavern && activeTavern.ownerUid === currentUser.uid && m.uid !== currentUser.uid) {
         kickHtml = `<button class="member-kick-btn" data-uid="${m.uid}" data-name="${m.name}">KICK</button>`;
       }
       
@@ -1684,7 +1736,7 @@ function subscribeToLeaderboard(memberUids) {
       
       row.style.cursor = 'pointer';
       row.addEventListener('click', () => {
-        friendProfileSourceView = 'guild';
+        friendProfileSourceView = 'tavern';
         const friendObj = {
           uid: m.uid,
           code: friendDataCache[m.uid]?.friendCode || 'QM-XXXX',
@@ -1703,7 +1755,7 @@ function subscribeToLeaderboard(memberUids) {
       if (kickBtn) {
         kickBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          kickGuildMember(m.uid, m.name);
+          kickTavernMember(m.uid, m.name);
         });
       }
       
@@ -1712,24 +1764,24 @@ function subscribeToLeaderboard(memberUids) {
   });
 }
 
-async function renderPublicGuildsList() {
-  const container = document.getElementById('public-guilds-list');
+async function renderPublicTavernsList() {
+  const container = document.getElementById('public-taverns-list');
   if (!container) return;
   
   try {
-    const q = query(collection(db, 'guilds'), limit(15));
+    const q = query(collection(db, 'taverns'), limit(15));
     const snap = await getDocs(q);
     
     container.innerHTML = '';
     if (snap.empty) {
-      container.innerHTML = '<p class="empty-journal-msg" style="text-align: center; padding: 15px;">No active guilds. Be the first to create one!</p>';
+      container.innerHTML = '<p class="empty-journal-msg" style="text-align: center; padding: 15px;">No active taverns. Be the first to create one!</p>';
       return;
     }
     
     snap.docs.forEach(docSnap => {
       const g = docSnap.data();
       const item = document.createElement('div');
-      item.className = 'guild-list-item';
+      item.className = 'tavern-list-item';
       item.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 1.5rem;">${g.crest || '🛡️'}</span>
@@ -1745,7 +1797,7 @@ async function renderPublicGuildsList() {
       `;
       
       item.addEventListener('click', () => {
-        const codeInput = document.getElementById('guild-join-code');
+        const codeInput = document.getElementById('tavern-join-code');
         if (codeInput) {
           codeInput.value = g.code;
           codeInput.focus();
@@ -1755,7 +1807,7 @@ async function renderPublicGuildsList() {
       container.appendChild(item);
     });
   } catch (e) {
-    console.error("Error loading public guilds:", e);
+    console.error("Error loading public taverns:", e);
   }
 }
 
@@ -1858,12 +1910,12 @@ function drawFellowshipRing(activeInstance) {
     }
   }
   
-  const guildInviteBtn = document.getElementById('btn-codex-guild-invite');
-  if (guildInviteBtn) {
-    if (currentPartySize < maxParty && characterState.guildId && !activeInstance.lobbyId) {
-      guildInviteBtn.classList.remove('hidden');
+  const tavernInviteBtn = document.getElementById('btn-codex-tavern-invite');
+  if (tavernInviteBtn) {
+    if (currentPartySize < maxParty && characterState.tavernId && !activeInstance.lobbyId) {
+      tavernInviteBtn.classList.remove('hidden');
     } else {
-      guildInviteBtn.classList.add('hidden');
+      tavernInviteBtn.classList.add('hidden');
     }
   }
 }
@@ -1909,7 +1961,7 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
   const bonusRow = document.getElementById('codex-bonus-row');
   const actionBtn = document.getElementById('btn-codex-action');
   const inviteBtn = document.getElementById('btn-codex-invite');
-  const guildInviteBtn = document.getElementById('btn-codex-guild-invite');
+  const tavernInviteBtn = document.getElementById('btn-codex-tavern-invite');
   
   let myAvatarHtml = characterState.avatarType === 'custom' && characterState.avatarData ? 
     `<img src="${characterState.avatarData}" style="width:100%; height:100%; object-fit:cover; border-radius: 50%;">` : 
@@ -1978,7 +2030,7 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
     document.getElementById('ring-party-size').textContent = `1/${maxParty}`;
     bonusRow.classList.add('hidden');
     inviteBtn.classList.add('hidden');
-    if (guildInviteBtn) guildInviteBtn.classList.add('hidden');
+    if (tavernInviteBtn) tavernInviteBtn.classList.add('hidden');
     
     // If they click JOIN QUEST
     actionBtn.classList.remove('hidden');
@@ -2054,8 +2106,8 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
       };
     }
     
-    if (guildInviteBtn) {
-      guildInviteBtn.onclick = async () => {
+    if (tavernInviteBtn) {
+      tavernInviteBtn.onclick = async () => {
         playSound('success');
         
         let lobbyId = quest.lobbyId || (activeInstance ? activeInstance.lobbyId : null);
@@ -2097,8 +2149,8 @@ function openQuestCodex(quest, sourceView, hostFriend = null) {
           lobbyId: lobbyId
         });
         
-        alert("Quest invite shared in Guild Chat!");
-        guildInviteBtn.classList.add('hidden');
+        alert("Quest invite shared in Tavern Chat!");
+        tavernInviteBtn.classList.add('hidden');
         
         openQuestCodex(quest, sourceView, hostFriend);
       };
@@ -2381,12 +2433,14 @@ document.addEventListener('DOMContentLoaded', () => {
     dots.forEach((dot, i) => {
       dot.classList.toggle('active', i === index);
     });
+    updateHeaderButtonsVisibility();
   });
 
   // Snap to center panel on load
   setTimeout(() => {
     const centerPanel = document.getElementById('main-panel');
     if (centerPanel) centerPanel.scrollIntoView();
+    updateHeaderButtonsVisibility();
   }, 100);
 
   // Mute toggle listener
@@ -3086,9 +3140,9 @@ document.addEventListener('DOMContentLoaded', () => {
             await setDoc(doc(db, 'friendCodes', friendCode), { uid: user.uid });
           }
           
-          const newGuildId = data.guildId || '';
-          characterState.guildId = newGuildId;
-          handleGuildSubscription(newGuildId);
+          const newTavernId = data.tavernId || '';
+          characterState.tavernId = newTavernId;
+          handleTavernSubscription(newTavernId);
 
           updateProfileUI();
           updateActiveQuestsUI();
@@ -3196,11 +3250,11 @@ document.addEventListener('DOMContentLoaded', () => {
       currentUser = null;
       document.getElementById('view-auth').classList.add('visible');
       
-      // Clean up active guild subscriptions on logout
-      if (unsubscribeGuild) { unsubscribeGuild(); unsubscribeGuild = null; }
-      if (unsubscribeGuildChat) { unsubscribeGuildChat(); unsubscribeGuildChat = null; }
-      if (unsubscribeGuildLeaderboard) { unsubscribeGuildLeaderboard(); unsubscribeGuildLeaderboard = null; }
-      activeGuild = null;
+      // Clean up active tavern subscriptions on logout
+      if (unsubscribeTavern) { unsubscribeTavern(); unsubscribeTavern = null; }
+      if (unsubscribeTavernChat) { unsubscribeTavernChat(); unsubscribeTavernChat = null; }
+      if (unsubscribeTavernLeaderboard) { unsubscribeTavernLeaderboard(); unsubscribeTavernLeaderboard = null; }
+      activeTavern = null;
 
       // Reset Auth Screens
       document.getElementById('auth-email-screen').classList.add('hidden');
@@ -3214,8 +3268,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- Guild DOM Event Listeners ---
-  const createCrestPresets = document.querySelectorAll('#guild-crest-presets .avatar-preset-btn');
+  // --- Tavern DOM Event Listeners ---
+  const createCrestPresets = document.querySelectorAll('#tavern-crest-presets .avatar-preset-btn');
   createCrestPresets.forEach(btn => {
     btn.addEventListener('click', (e) => {
       playSound('click');
@@ -3224,7 +3278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  const editCrestPresets = document.querySelectorAll('#guild-edit-crest-presets .avatar-preset-btn');
+  const editCrestPresets = document.querySelectorAll('#tavern-edit-crest-presets .avatar-preset-btn');
   editCrestPresets.forEach(btn => {
     btn.addEventListener('click', (e) => {
       playSound('click');
@@ -3233,77 +3287,77 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  const btnGuildCreate = document.getElementById('btn-guild-create');
-  if (btnGuildCreate) {
-    btnGuildCreate.addEventListener('click', async () => {
-      const name = document.getElementById('guild-create-name').value;
-      const desc = document.getElementById('guild-create-desc').value;
-      const selectedBtn = document.querySelector('#guild-crest-presets .avatar-preset-btn.selected');
+  const btnTavernCreate = document.getElementById('btn-tavern-create');
+  if (btnTavernCreate) {
+    btnTavernCreate.addEventListener('click', async () => {
+      const name = document.getElementById('tavern-create-name').value;
+      const desc = document.getElementById('tavern-create-desc').value;
+      const selectedBtn = document.querySelector('#tavern-crest-presets .avatar-preset-btn.selected');
       const crest = selectedBtn ? selectedBtn.getAttribute('data-crest') : '⚔️';
       
-      await createGuild(name, desc, crest);
-      document.getElementById('guild-create-name').value = '';
-      document.getElementById('guild-create-desc').value = '';
+      await createTavern(name, desc, crest);
+      document.getElementById('tavern-create-name').value = '';
+      document.getElementById('tavern-create-desc').value = '';
     });
   }
 
-  const btnGuildJoin = document.getElementById('btn-guild-join');
-  if (btnGuildJoin) {
-    btnGuildJoin.addEventListener('click', async () => {
-      const code = document.getElementById('guild-join-code').value;
-      await joinGuild(code);
-      document.getElementById('guild-join-code').value = '';
+  const btnTavernJoin = document.getElementById('btn-tavern-join');
+  if (btnTavernJoin) {
+    btnTavernJoin.addEventListener('click', async () => {
+      const code = document.getElementById('tavern-join-code').value;
+      await joinTavern(code);
+      document.getElementById('tavern-join-code').value = '';
     });
   }
 
-  const btnGuildLeave = document.getElementById('btn-guild-leave');
-  if (btnGuildLeave) {
-    btnGuildLeave.addEventListener('click', async () => {
-      await leaveGuild();
+  const btnTavernLeave = document.getElementById('btn-tavern-leave');
+  if (btnTavernLeave) {
+    btnTavernLeave.addEventListener('click', async () => {
+      await leaveTavern();
     });
   }
 
-  const btnGuildEdit = document.getElementById('btn-guild-edit');
-  if (btnGuildEdit) {
-    btnGuildEdit.addEventListener('click', () => {
-      if (!activeGuild) return;
+  const btnTavernEdit = document.getElementById('btn-tavern-edit');
+  if (btnTavernEdit) {
+    btnTavernEdit.addEventListener('click', () => {
+      if (!activeTavern) return;
       playSound('modalOpen');
-      document.getElementById('guild-edit-desc-input').value = activeGuild.description || '';
+      document.getElementById('tavern-edit-desc-input').value = activeTavern.description || '';
       
-      const editPresets = document.querySelectorAll('#guild-edit-crest-presets .avatar-preset-btn');
+      const editPresets = document.querySelectorAll('#tavern-edit-crest-presets .avatar-preset-btn');
       editPresets.forEach(btn => {
-        const isSelected = btn.getAttribute('data-crest') === activeGuild.crest;
+        const isSelected = btn.getAttribute('data-crest') === activeTavern.crest;
         btn.classList.toggle('selected', isSelected);
       });
       
-      document.getElementById('guild-edit-modal').classList.add('visible');
+      document.getElementById('tavern-edit-modal').classList.add('visible');
     });
   }
 
-  const btnGuildSaveEdit = document.getElementById('btn-guild-save-edit');
-  if (btnGuildSaveEdit) {
-    btnGuildSaveEdit.addEventListener('click', async () => {
-      const desc = document.getElementById('guild-edit-desc-input').value;
-      const selectedBtn = document.querySelector('#guild-edit-crest-presets .avatar-preset-btn.selected');
+  const btnTavernSaveEdit = document.getElementById('btn-tavern-save-edit');
+  if (btnTavernSaveEdit) {
+    btnTavernSaveEdit.addEventListener('click', async () => {
+      const desc = document.getElementById('tavern-edit-desc-input').value;
+      const selectedBtn = document.querySelector('#tavern-edit-crest-presets .avatar-preset-btn.selected');
       const crest = selectedBtn ? selectedBtn.getAttribute('data-crest') : '🛡️';
       
-      await saveGuildEdit(desc, crest);
-      document.getElementById('guild-edit-modal').classList.remove('visible');
+      await saveTavernEdit(desc, crest);
+      document.getElementById('tavern-edit-modal').classList.remove('visible');
     });
   }
 
-  const btnGuildEditClose = document.getElementById('guild-edit-modal-close');
-  if (btnGuildEditClose) {
-    btnGuildEditClose.addEventListener('click', () => {
+  const btnTavernEditClose = document.getElementById('tavern-edit-modal-close');
+  if (btnTavernEditClose) {
+    btnTavernEditClose.addEventListener('click', () => {
       playSound('click');
-      document.getElementById('guild-edit-modal').classList.remove('visible');
+      document.getElementById('tavern-edit-modal').classList.remove('visible');
     });
   }
 
-  const tabHome = document.getElementById('tab-guild-home');
-  const tabChat = document.getElementById('tab-guild-chat');
-  const homeContent = document.getElementById('guild-hub-home-content');
-  const chatContent = document.getElementById('guild-hub-chat-content');
+  const tabHome = document.getElementById('tab-tavern-home');
+  const tabChat = document.getElementById('tab-tavern-chat');
+  const homeContent = document.getElementById('tavern-hub-home-content');
+  const chatContent = document.getElementById('tavern-hub-chat-content');
 
   if (tabHome && tabChat) {
     tabHome.addEventListener('click', () => {
@@ -3321,18 +3375,18 @@ document.addEventListener('DOMContentLoaded', () => {
       chatContent.classList.remove('hidden');
       homeContent.classList.add('hidden');
       
-      const chatFeed = document.getElementById('guild-chat-feed');
+      const chatFeed = document.getElementById('tavern-chat-feed');
       if (chatFeed) {
         chatFeed.scrollTop = chatFeed.scrollHeight;
       }
       
-      const chatBadge = document.getElementById('guild-chat-badge');
+      const chatBadge = document.getElementById('tavern-chat-badge');
       if (chatBadge) chatBadge.classList.add('hidden');
     });
   }
 
-  const btnChatSend = document.getElementById('btn-guild-chat-send');
-  const chatInput = document.getElementById('guild-chat-input');
+  const btnChatSend = document.getElementById('btn-tavern-chat-send');
+  const chatInput = document.getElementById('tavern-chat-input');
 
   if (btnChatSend && chatInput) {
     const handleSend = async () => {

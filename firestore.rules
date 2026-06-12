@@ -20,7 +20,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    match /guilds/{guildId} {
+    match /taverns/{tavernId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && (resource.data.ownerUid == request.auth.uid || request.resource.data.members.hasAll(resource.data.members));
