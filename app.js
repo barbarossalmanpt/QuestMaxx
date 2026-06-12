@@ -1008,6 +1008,39 @@ function ensureFriendStats(friend) {
   }
 }
 
+async function showApplicantProfile(senderUid, fallbackDetails) {
+  playSound('modalOpen');
+  
+  let resolvedUser = null;
+  try {
+    if (senderUid) {
+      const userDoc = await getDoc(doc(db, 'users', senderUid));
+      if (userDoc.exists()) {
+        resolvedUser = userDoc.data();
+        friendDataCache[senderUid] = resolvedUser;
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch applicant profile on click:", e);
+  }
+
+  const friendObj = {
+    uid: senderUid,
+    name: resolvedUser ? (resolvedUser.nickname || fallbackDetails.senderName) : fallbackDetails.senderName,
+    code: resolvedUser ? (resolvedUser.friendCode || fallbackDetails.senderCode) : fallbackDetails.senderCode,
+    avatarClass: resolvedUser ? (resolvedUser.avatarClass || fallbackDetails.senderAvatarClass) : fallbackDetails.senderAvatarClass,
+    avatarType: resolvedUser ? (resolvedUser.avatarType || fallbackDetails.senderAvatarType) : fallbackDetails.senderAvatarType,
+    avatarData: resolvedUser ? (resolvedUser.avatarData || fallbackDetails.senderAvatarData) : fallbackDetails.senderAvatarData,
+    level: resolvedUser ? (resolvedUser.level || 1) : 1,
+    xp: resolvedUser ? (resolvedUser.xp || 0) : 0,
+    deeds: (resolvedUser && resolvedUser.completedQuests) ? 
+      resolvedUser.completedQuests.map(q => ({ title: q.title, xpEarned: q.xpEarned })) : []
+  };
+
+  friendProfileSourceView = 'notifications';
+  showFriendProfile(friendObj);
+}
+
 function showFriendProfile(friend) {
   playSound('modalOpen');
   
@@ -1049,27 +1082,26 @@ function showFriendProfile(friend) {
   const title = classTitles[resolvedFriend.avatarClass] || 'HERO';
   document.getElementById('friend-profile-class').textContent = `LEVEL ${resolvedFriend.level} ${title}`;
   
-  // Populate details on the action button (Add vs Remove vs Hide if self)
+  const addFriendBtn = document.getElementById('btn-add-friend');
   const removeBtn = document.getElementById('btn-remove-friend');
-  if (removeBtn) {
-    if (resolvedFriend.uid === currentUser.uid) {
-      removeBtn.classList.add('hidden');
-    } else {
-      removeBtn.classList.remove('hidden');
-      const isAlreadyFriend = friendsList.some(f => f.uid === resolvedFriend.uid || f.code === resolvedFriend.code);
-      if (isAlreadyFriend) {
-        removeBtn.textContent = 'REMOVE FRIEND';
-        removeBtn.style.borderColor = '#e74c3c';
-        removeBtn.style.color = '#e74c3c';
-        removeBtn.setAttribute('data-action', 'remove');
-      } else {
-        removeBtn.textContent = 'ADD FRIEND';
-        removeBtn.style.borderColor = '#2ecc71';
-        removeBtn.style.color = '#2ecc71';
-        removeBtn.setAttribute('data-action', 'add');
+  
+  if (addFriendBtn) addFriendBtn.classList.add('hidden');
+  if (removeBtn) removeBtn.classList.add('hidden');
+  
+  if (resolvedFriend.uid !== currentUser.uid) {
+    const isAlreadyFriend = friendsList.some(f => f.uid === resolvedFriend.uid || f.code === resolvedFriend.code);
+    if (isAlreadyFriend) {
+      if (removeBtn) {
+        removeBtn.classList.remove('hidden');
+        removeBtn.setAttribute('data-uid', resolvedFriend.uid || '');
+        removeBtn.setAttribute('data-code', resolvedFriend.code || '');
       }
-      removeBtn.setAttribute('data-uid', resolvedFriend.uid || '');
-      removeBtn.setAttribute('data-code', resolvedFriend.code || '');
+    } else {
+      if (addFriendBtn) {
+        addFriendBtn.classList.remove('hidden');
+        addFriendBtn.setAttribute('data-uid', resolvedFriend.uid || '');
+        addFriendBtn.setAttribute('data-code', resolvedFriend.code || '');
+      }
     }
   }
 
@@ -1215,7 +1247,8 @@ async function joinTavern(code) {
     // Check invite-only status
     if (gData.status === 'invite') {
       playSound('success');
-      await addDoc(collection(db, 'taverns', tavernDoc.id, 'chat'), {
+      
+      const chatRef = await addDoc(collection(db, 'taverns', tavernDoc.id, 'chat'), {
         senderUid: currentUser.uid,
         senderName: characterState.nickname,
         senderAvatarClass: characterState.avatarClass,
@@ -1226,6 +1259,36 @@ async function joinTavern(code) {
         status: 'pending',
         timestamp: Date.now()
       });
+
+      // Notify owner and co-leaders
+      const recipients = [gData.ownerUid];
+      if (gData.coLeaders) {
+        gData.coLeaders.forEach(uid => {
+          if (!recipients.includes(uid)) recipients.push(uid);
+        });
+      }
+
+      for (const recUid of recipients) {
+        try {
+          await addDoc(collection(db, 'users', recUid, 'notifications'), {
+            type: 'tavern_join_request',
+            senderUid: currentUser.uid,
+            senderName: characterState.nickname,
+            senderAvatarClass: characterState.avatarClass,
+            senderAvatarType: characterState.avatarType,
+            senderAvatarData: characterState.avatarData,
+            senderCode: characterState.friendCode || 'QM-XXXX',
+            tavernId: tavernDoc.id,
+            tavernName: gData.name,
+            chatMsgId: chatRef.id,
+            timestamp: Date.now(),
+            read: false
+          });
+        } catch (e) {
+          console.warn("Failed to notify recipient: " + recUid, e);
+        }
+      }
+
       alert("Application submitted! Tavern Leaders/Co-Leaders will review your request in the chat.");
       return;
     }
@@ -1405,14 +1468,7 @@ function openTavernSettingsModal() {
   document.getElementById('settings-role-coleader').value = activeTavern.coleaderTitle || '🛡️ CO-LEADER';
   document.getElementById('settings-role-member').value = activeTavern.memberTitle || '🛡️ MEMBER';
 
-  // Highlight current theme
-  const currentTheme = activeTavern.glowTheme || 'gold';
-  const themeBtns = document.querySelectorAll('.theme-picker .theme-btn');
-  themeBtns.forEach(btn => {
-    const isSelected = btn.getAttribute('data-theme') === currentTheme;
-    btn.classList.toggle('selected', isSelected);
-    btn.style.borderColor = isSelected ? '#fff' : 'transparent';
-  });
+
 
   // Render members list for Co-leader promotions and kicking
   renderSettingsMembersList();
@@ -1569,8 +1625,7 @@ async function saveTavernSettings() {
   const coleaderTitle = document.getElementById('settings-role-coleader').value.trim() || '🛡️ CO-LEADER';
   const memberTitle = document.getElementById('settings-role-member').value.trim() || '🛡️ MEMBER';
   
-  const selectedThemeBtn = document.querySelector('.theme-picker .theme-btn.selected');
-  const glowTheme = selectedThemeBtn ? selectedThemeBtn.getAttribute('data-theme') : 'gold';
+  const glowTheme = 'gold';
 
   try {
     playSound('success');
@@ -1884,6 +1939,17 @@ function handleTavernSubscription(newTavernId) {
         social: '🍻 SOCIAL'
       };
       focusTagEl.textContent = 'FOCUS: ' + (focusLabels[gData.focus] || '⚔️ CASUAL');
+    }
+
+    // Render status tag
+    const statusTagEl = document.getElementById('tavern-hub-status-tag');
+    if (statusTagEl) {
+      const statusLabels = {
+        public: '🌍 PUBLIC',
+        invite: '✉️ INVITE ONLY',
+        closed: '🔒 CLOSED'
+      };
+      statusTagEl.textContent = 'STATUS: ' + (statusLabels[gData.status] || '🌍 PUBLIC');
     }
 
     // Render MOTD / welcome notice board
@@ -2241,6 +2307,7 @@ async function renderPublicTavernsList() {
     snap.docs.forEach(docSnap => {
       const g = docSnap.data();
       if (g.status === 'closed' || g.status === 'invite') return;
+      if (g.members && g.members.includes(currentUser.uid)) return;
       
       const focusLabels = {
         casual: '⚔️ CASUAL',
@@ -2851,6 +2918,19 @@ function updateNotificationsUI() {
             <button class="stone-button small-btn decline-btn" style="padding: 5px 10px; font-size: 0.7rem; flex: 1;" data-action="decline-coop" data-id="${n.id}">DECLINE</button>
           </div>
         `;
+      } else if (n.type === 'tavern_join_request') {
+        item.innerHTML = `
+          <div style="display: flex; justify-content: space-between; width: 100%;">
+            <span class="friend-name" style="font-size: 0.9rem;">🏰 Join Request from ${n.senderName}</span>
+            <span style="font-size: 0.7rem; color: var(--text-dim);">Just now</span>
+          </div>
+          <p style="font-size:0.85rem; margin-top: 5px; color:var(--text-main);">Wants to join: <strong>${n.tavernName}</strong></p>
+          <div style="display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap;">
+            <button class="stone-button small-btn view-profile-btn" style="padding: 5px 8px; font-size: 0.65rem; border-color: var(--neon-purple); color: var(--text-main); flex: 1;" data-action="view-profile" data-uid="${n.senderUid}" data-id="${n.id}">VIEW PROFILE</button>
+            <button class="stone-button small-btn accept-btn" style="padding: 5px 8px; font-size: 0.65rem; border-color: var(--emerald); color: var(--emerald); flex: 1;" data-action="accept-tavern" data-id="${n.id}">ACCEPT</button>
+            <button class="stone-button small-btn decline-btn" style="padding: 5px 8px; font-size: 0.65rem; border-color: #e74c3c; color: #e74c3c; flex: 1;" data-action="decline-tavern" data-id="${n.id}">DECLINE</button>
+          </div>
+        `;
       }
       notiList.appendChild(item);
     });
@@ -3339,6 +3419,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else if (action === 'decline-coop') {
         playSound('toggleOff');
+      } else if (action === 'view-profile') {
+        const senderUid = e.target.getAttribute('data-uid');
+        document.getElementById('notifications-modal').classList.remove('visible');
+        await showApplicantProfile(senderUid, {
+          senderName: noti.senderName,
+          senderCode: noti.senderCode,
+          senderAvatarClass: noti.senderAvatarClass,
+          senderAvatarType: noti.senderAvatarType || noti.avatarType,
+          senderAvatarData: noti.senderAvatarData || noti.avatarData
+        });
+        return; // Do not delete this notification card!
+      } else if (action === 'accept-tavern') {
+        await acceptTavernApplication(noti.chatMsgId, noti.senderUid, noti.senderName);
+      } else if (action === 'decline-tavern') {
+        await declineTavernApplication(noti.chatMsgId);
       }
       
       if (notiId && !notiId.startsWith('mock_')) {
@@ -3367,57 +3462,72 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('friend-profile-modal').classList.remove('visible');
     if (friendProfileSourceView === 'friends') {
       document.getElementById('friends-modal').classList.add('visible');
+    } else if (friendProfileSourceView === 'notifications') {
+      document.getElementById('notifications-modal').classList.add('visible');
     }
   });
+
+  const addFriendBtn = document.getElementById('btn-add-friend');
+  if (addFriendBtn) {
+    addFriendBtn.addEventListener('click', async () => {
+      const uid = addFriendBtn.getAttribute('data-uid');
+      const code = addFriendBtn.getAttribute('data-code');
+      if (!code) return;
+
+      try {
+        playSound('success');
+        await addDoc(collection(db, 'users', uid, 'notifications'), {
+          type: 'friend_request',
+          senderCode: friendCode,
+          senderUid: currentUser.uid,
+          timestamp: Date.now(),
+          read: false
+        });
+        alert("Friend request sent to " + code + "!");
+        document.getElementById('friend-profile-modal').classList.remove('visible');
+        if (friendProfileSourceView === 'friends') {
+          document.getElementById('friends-modal').classList.add('visible');
+        } else if (friendProfileSourceView === 'notifications') {
+          document.getElementById('notifications-modal').classList.add('visible');
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to send friend request: " + err.message);
+      }
+    });
+  }
 
   const removeFriendBtn = document.getElementById('btn-remove-friend');
   if (removeFriendBtn) {
     removeFriendBtn.addEventListener('click', async () => {
       const uid = removeFriendBtn.getAttribute('data-uid');
       const code = removeFriendBtn.getAttribute('data-code');
-      const action = removeFriendBtn.getAttribute('data-action') || 'remove';
       if (!code) return;
 
-      if (action === 'add') {
-        try {
-          playSound('success');
-          await addDoc(collection(db, 'users', uid, 'notifications'), {
-            type: 'friend_request',
-            senderCode: friendCode,
-            senderUid: currentUser.uid,
-            timestamp: Date.now(),
-            read: false
-          });
-          alert("Friend request sent to " + code + "!");
-          document.getElementById('friend-profile-modal').classList.remove('visible');
-        } catch (err) {
-          console.error(err);
-          alert("Failed to send friend request: " + err.message);
-        }
-      } else {
-        if (confirm(`Are you sure you want to remove this friend (${code})?`)) {
-          playSound('toggleOff');
+      if (confirm(`Are you sure you want to remove this friend (${code})?`)) {
+        playSound('toggleOff');
 
-          if (uid && friendSubscriptions[uid]) {
-            try {
-              friendSubscriptions[uid]();
-            } catch (e) {
-              console.error(e);
-            }
-            delete friendSubscriptions[uid];
+        if (uid && friendSubscriptions[uid]) {
+          try {
+            friendSubscriptions[uid]();
+          } catch (e) {
+            console.error(e);
           }
-
-          friendsList = friendsList.filter(fr => fr.code !== code);
-          saveToLocalStorage();
-          updateFriendsUI();
-
-          document.getElementById('friend-profile-modal').classList.remove('visible');
-          if (friendProfileSourceView === 'friends') {
-            document.getElementById('friends-modal').classList.add('visible');
-          }
-          
-          alert("Friend removed successfully.");
+          delete friendSubscriptions[uid];
         }
+
+        friendsList = friendsList.filter(fr => fr.code !== code);
+        saveToLocalStorage();
+        updateFriendsUI();
+
+        document.getElementById('friend-profile-modal').classList.remove('visible');
+        if (friendProfileSourceView === 'friends') {
+          document.getElementById('friends-modal').classList.add('visible');
+        } else if (friendProfileSourceView === 'notifications') {
+          document.getElementById('notifications-modal').classList.add('visible');
+        }
+        
+        alert("Friend removed successfully.");
       }
     });
   }
@@ -3875,18 +3985,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const themeBtns = document.querySelectorAll('.theme-picker .theme-btn');
-  themeBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      playSound('click');
-      themeBtns.forEach(b => {
-        b.classList.remove('selected');
-        b.style.borderColor = 'transparent';
-      });
-      e.currentTarget.classList.add('selected');
-      e.currentTarget.style.borderColor = '#fff';
-    });
-  });
+
 
   const codePlaque = document.querySelector('.tavern-code-plaque');
   if (codePlaque) {

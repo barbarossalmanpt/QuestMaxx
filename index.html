@@ -204,7 +204,10 @@
             <span id="friend-profile-status" class="stat-value">AVAILABLE</span>
           </div>
         </div>
-        <button id="btn-remove-friend" class="stone-button small-btn" style="margin-top: 10px; width: 100%; border-color: #e74c3c; color: #e74c3c;">REMOVE FRIEND</button>
+        <div style="display: flex; gap: 10px; margin-top: 10px; width: 100%;">
+          <button id="btn-add-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: #2ecc71; color: #2ecc71;">ADD FRIEND</button>
+          <button id="btn-remove-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: #e74c3c; color: #e74c3c;">REMOVE FRIEND</button>
+        </div>
       </div>
 
       <!-- Friend's Active Quests -->
@@ -316,18 +319,6 @@
             <option value="octagon">🛑 OCTAGON FRAME</option>
             <option value="circular">🔘 CIRCULAR FRAME</option>
           </select>
-        </div>
-
-        <!-- Glow Theme Color -->
-        <div class="settings-group">
-          <label class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">TAVERN GLOW THEME</label>
-          <div class="theme-picker" style="display: flex; gap: 8px; justify-content: space-between; margin-top: 5px;">
-            <button type="button" class="theme-btn theme-btn-gold selected" data-theme="gold" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; background: #f4c430; cursor: pointer; box-shadow: 0 0 8px rgba(244,196,48,0.5);"></button>
-            <button type="button" class="theme-btn theme-btn-purple" data-theme="purple" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #9b59b6; cursor: pointer;"></button>
-            <button type="button" class="theme-btn theme-btn-red" data-theme="red" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #e74c3c; cursor: pointer;"></button>
-            <button type="button" class="theme-btn theme-btn-green" data-theme="green" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #2ecc71; cursor: pointer;"></button>
-            <button type="button" class="theme-btn theme-btn-blue" data-theme="blue" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #3498db; cursor: pointer;"></button>
-          </div>
         </div>
 
         <!-- Custom Role Names -->
@@ -645,6 +636,7 @@
                   <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
                     <span style="font-size: 0.75rem; white-space: nowrap;">MEMBERS: <strong id="tavern-hub-count" style="color: var(--emerald);">1/30</strong></span>
                     <span style="font-size: 0.65rem; color: var(--text-dim); white-space: nowrap;" id="tavern-hub-focus-tag">FOCUS: ⚔️ CASUAL</span>
+                    <span style="font-size: 0.65rem; color: var(--gold-bright); white-space: nowrap;" id="tavern-hub-status-tag">STATUS: 🌍 PUBLIC</span>
                   </div>
                 </div>
               </div>
