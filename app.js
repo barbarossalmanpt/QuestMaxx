@@ -2242,15 +2242,19 @@ function subscribeToLeaderboard(memberUids) {
       }
 
       let kickHtml = '';
+      let promoteHtml = '';
       if (activeTavern && activeTavern.ownerUid === currentUser.uid && m.uid !== currentUser.uid) {
         kickHtml = `<button class="member-kick-btn" data-uid="${m.uid}" data-name="${m.name}">KICK</button>`;
+        const isTargetCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(m.uid);
+        const btnText = isTargetCoLeader ? 'DEMOTE' : 'PROMOTE';
+        promoteHtml = `<button class="member-promote-btn" data-uid="${m.uid}" data-name="${m.name}" data-action="${isTargetCoLeader ? 'demote' : 'promote'}">${btnText}</button>`;
       }
       
       row.innerHTML = `
         <div class="leaderboard-member-info">
           <span class="leaderboard-rank" style="font-size: 1.1rem; min-width: 20px; text-align: center;">${rankBadge}</span>
           <span class="leaderboard-avatar" style="font-size: 1.1rem; display: flex; align-items: center;">${avatarHtml}</span>
-          <span class="leaderboard-name" style="display:flex; align-items:center; gap:5px;">${m.name}${roleBadge}</span>
+          <span class="leaderboard-name" style="display:flex; align-items:center; gap:5px;">${m.name}${roleBadge}${promoteHtml}</span>
           ${kickHtml}
         </div>
         <div class="leaderboard-xp">
@@ -2281,6 +2285,16 @@ function subscribeToLeaderboard(memberUids) {
         kickBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           kickTavernMember(m.uid, m.name);
+        });
+      }
+
+      const promoteBtn = row.querySelector('.member-promote-btn');
+      if (promoteBtn) {
+        promoteBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const action = promoteBtn.getAttribute('data-action');
+          const shouldPromote = action === 'promote';
+          await toggleCoLeaderStatus(m.uid, m.name, shouldPromote);
         });
       }
       
