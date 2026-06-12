@@ -354,28 +354,7 @@ function switchView(targetViewId) {
 }
 
 function updateHeaderButtonsVisibility() {
-  const swipeContainer = document.querySelector('.swipe-container');
-  const btnFriends = document.getElementById('btn-friends-list');
-  const btnNoti = document.getElementById('btn-notification');
-  if (!swipeContainer || !btnFriends || !btnNoti) return;
-
-  const scrollPos = swipeContainer.scrollLeft;
-  const width = swipeContainer.clientWidth;
-  
-  // Guard against divide by zero or clientWidth not loaded yet
-  if (width === 0) return;
-  
-  const panelIndex = Math.round(scrollPos / width);
-
-  // Show only if panelIndex === 1 (center panel) AND currentView === 'view-home'
-  const shouldShow = (panelIndex === 1 && currentView === 'view-home');
-  if (shouldShow) {
-    btnFriends.classList.remove('hidden');
-    btnNoti.classList.remove('hidden');
-  } else {
-    btnFriends.classList.add('hidden');
-    btnNoti.classList.add('hidden');
-  }
+  // Stuck to main menu, handled naturally by HTML nesting!
 }
 
 // --- Wizard Data ---

@@ -55,20 +55,6 @@
     <div class="banner-progress-bar"><div id="banner-progress-fill" class="banner-progress-fill"></div></div>
   </div>
 
-  <!-- Top Header Buttons -->
-  <div class="top-header-buttons">
-    <button id="btn-friends-list" class="header-btn" aria-label="Friends List" title="Friends">
-      <span class="icon">👥</span>
-    </button>
-    <button id="btn-notification" class="header-btn" aria-label="Notifications" title="Notifications">
-      <span class="icon">🔔</span>
-      <span id="noti-badge" class="badge hidden"></span>
-    </button>
-    <button id="mute-toggle" class="header-btn mute-btn" aria-label="Toggle Sound" title="Mute">
-      <span class="icon">🔊</span>
-    </button>
-  </div>
-
   <!-- Particle Background Container -->
   <div id="particles-container"></div>
 
@@ -448,8 +434,19 @@
       
       <!-- Screen 1: Home View -->
       <div id="view-home" class="view active-view">
-        
-
+        <!-- Top Header Buttons (stuck to main menu) -->
+        <div class="top-header-buttons">
+          <button id="btn-friends-list" class="header-btn" aria-label="Friends List" title="Friends">
+            <span class="icon">👥</span>
+          </button>
+          <button id="btn-notification" class="header-btn" aria-label="Notifications" title="Notifications">
+            <span class="icon">🔔</span>
+            <span id="noti-badge" class="badge hidden"></span>
+          </button>
+          <button id="mute-toggle" class="header-btn mute-btn" aria-label="Toggle Sound" title="Mute">
+            <span class="icon">🔊</span>
+          </button>
+        </div>
 
         <div class="banner-plaque">
           <h1 class="app-title">⚔ QUESTMAX ⚔</h1>
