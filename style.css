@@ -1917,36 +1917,351 @@ body::before {
   box-shadow: 0 0 5px rgba(244, 196, 48, 0.5);
 }
 
+.chat-msg-role-badge.coleader {
+  background: #3498db;
+  color: #fff;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+}
+
 .chat-msg-role-badge.member {
   background: var(--metal-iron);
   color: var(--text-main);
 }
 
 .chat-msg-time {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   opacity: 0.6;
 }
 
 .chat-msg-avatar-icon {
-  font-size: 1rem;
+  font-size: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .chat-msg-mini-avatar {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--metal-iron);
 }
 
 .chat-msg-text {
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   color: var(--text-main);
   word-break: break-word;
   line-height: 1.4;
 }
+
+.chat-msg-sender {
+  color: var(--gold-bright);
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+}
+
+.chat-msg.system {
+  align-self: center;
+  background: rgba(244, 196, 48, 0.08);
+  border: 1px dashed rgba(244, 196, 48, 0.4);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  font-size: 1rem;
+  max-width: 95%;
+  width: 95%;
+  text-align: center;
+  padding: 8px 12px;
+  box-shadow: none;
+  font-family: var(--font-title);
+  line-height: 1.3;
+}
+
+/* --- Tavern Settings UI & Visual Themes --- */
+
+.tavern-code-plaque {
+  background: rgba(244, 196, 48, 0.1);
+  border: 2px solid #f4c430;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(244, 196, 48, 0.2);
+}
+.tavern-code-plaque:hover {
+  background: rgba(244, 196, 48, 0.2);
+  box-shadow: 0 0 18px rgba(244, 196, 48, 0.4);
+  transform: scale(1.03);
+}
+.tavern-code-plaque:active {
+  transform: scale(0.97);
+}
+#tavern-hub-code {
+  font-size: 1.25rem;
+  font-family: var(--font-title);
+  color: #fff;
+  text-shadow: 0 0 8px rgba(244, 196, 48, 0.6);
+  letter-spacing: 1px;
+}
+
+/* Crest Frames */
+.crest-frame-shield {
+  border-radius: 6px 6px 22px 22px !important;
+}
+.crest-frame-octagon {
+  border-radius: 0 !important;
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+.crest-frame-circular {
+  border-radius: 50% !important;
+}
+
+/* Theme Picker & Color Buttons */
+.theme-btn {
+  transition: transform 0.2s, border-color 0.2s;
+}
+.theme-btn:active {
+  transform: scale(0.9);
+}
+.theme-btn.selected {
+  border-color: #fff !important;
+  transform: scale(1.15);
+}
+
+/* Tavern Panel Theme Colors */
+#tavern-panel.theme-gold {
+  box-shadow: inset 0 0 25px rgba(244, 196, 48, 0.25);
+  border-left: 2px solid #f4c430;
+  border-right: 2px solid #f4c430;
+}
+#tavern-panel.theme-gold #tavern-hub-name,
+#tavern-panel.theme-gold #tavern-motd-container h4 {
+  color: #f4c430 !important;
+}
+#tavern-panel.theme-gold .profile-card {
+  border-color: #f4c430 !important;
+}
+
+#tavern-panel.theme-purple {
+  box-shadow: inset 0 0 25px rgba(155, 89, 182, 0.25);
+  border-left: 2px solid #9b59b6;
+  border-right: 2px solid #9b59b6;
+}
+#tavern-panel.theme-purple #tavern-hub-name,
+#tavern-panel.theme-purple #tavern-motd-container h4 {
+  color: #9b59b6 !important;
+}
+#tavern-panel.theme-purple .profile-card {
+  border-color: #9b59b6 !important;
+}
+
+#tavern-panel.theme-red {
+  box-shadow: inset 0 0 25px rgba(231, 76, 60, 0.25);
+  border-left: 2px solid #e74c3c;
+  border-right: 2px solid #e74c3c;
+}
+#tavern-panel.theme-red #tavern-hub-name,
+#tavern-panel.theme-red #tavern-motd-container h4 {
+  color: #e74c3c !important;
+}
+#tavern-panel.theme-red .profile-card {
+  border-color: #e74c3c !important;
+}
+
+#tavern-panel.theme-green {
+  box-shadow: inset 0 0 25px rgba(46, 204, 113, 0.25);
+  border-left: 2px solid #2ecc71;
+  border-right: 2px solid #2ecc71;
+}
+#tavern-panel.theme-green #tavern-hub-name,
+#tavern-panel.theme-green #tavern-motd-container h4 {
+  color: #2ecc71 !important;
+}
+#tavern-panel.theme-green .profile-card {
+  border-color: #2ecc71 !important;
+}
+
+#tavern-panel.theme-blue {
+  box-shadow: inset 0 0 25px rgba(52, 152, 219, 0.25);
+  border-left: 2px solid #3498db;
+  border-right: 2px solid #3498db;
+}
+#tavern-panel.theme-blue #tavern-hub-name,
+#tavern-panel.theme-blue #tavern-motd-container h4 {
+  color: #3498db !important;
+}
+#tavern-panel.theme-blue .profile-card {
+  border-color: #3498db !important;
+}
+
+/* Big Quest Completion Chat Card */
+.chat-msg.big-quest-completion {
+  align-self: center !important;
+  background: linear-gradient(135deg, #2c1a04, #4a3000) !important;
+  border: 3px double #f4c430 !important;
+  border-radius: 12px !important;
+  color: var(--text-main) !important;
+  max-width: 95% !important;
+  width: 95% !important;
+  padding: 12px 15px !important;
+  box-shadow: 0 0 15px rgba(244, 196, 48, 0.4), inset 0 0 10px rgba(0, 0, 0, 0.6) !important;
+  position: relative !important;
+  overflow: hidden;
+  animation: gold-pulse 2s infinite alternate;
+}
+
+@keyframes gold-pulse {
+  0% {
+    box-shadow: 0 0 10px rgba(244, 196, 48, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.6);
+    border-color: #f4c430;
+  }
+  100% {
+    box-shadow: 0 0 25px rgba(244, 196, 48, 0.6), inset 0 0 10px rgba(0, 0, 0, 0.6);
+    border-color: #ffe066;
+  }
+}
+
+.big-quest-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-align: left;
+}
+
+.big-quest-crown {
+  font-size: 2.2rem;
+  animation: bounce-crown 1s infinite alternate;
+  filter: drop-shadow(0 0 8px rgba(244, 196, 48, 0.6));
+}
+
+@keyframes bounce-crown {
+  0% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-5px) scale(1.1); }
+}
+
+.big-quest-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.big-quest-title-text {
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  color: #f4c430;
+  margin: 0;
+  text-shadow: 0 0 8px rgba(244, 196, 48, 0.5);
+  letter-spacing: 1px;
+}
+
+.big-quest-desc-text {
+  font-size: 1rem;
+  margin: 0;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.big-quest-name {
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  color: #fff;
+  margin: 2px 0;
+  background: rgba(0,0,0,0.3);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(244, 196, 48, 0.3);
+  word-break: break-word;
+}
+
+.big-quest-xp-reward {
+  font-size: 0.9rem;
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+/* Range input retro style */
+input[type="range"] {
+  height: 25px;
+  -webkit-appearance: none;
+  background: transparent;
+  width: 100%;
+}
+input[type="range"]:focus {
+  outline: none;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  cursor: pointer;
+  background: #110822;
+  border: 1px solid var(--neon-purple);
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 2px;
+  background: var(--gold-primary);
+  border: 1px solid #000;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -6px;
+}
+input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  cursor: pointer;
+  background: #110822;
+  border: 1px solid var(--neon-purple);
+  border-radius: 2px;
+}
+input[type="range"]::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 2px;
+  background: var(--gold-primary);
+  border: 1px solid #000;
+  cursor: pointer;
+}
+
+.settings-group select {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--text-main);
+  background: #110822;
+  border: 2px solid var(--neon-purple);
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.role-manage-btn {
+  font-family: var(--font-title);
+  font-size: 0.55rem;
+  padding: 4px 6px;
+  background: var(--panel-bg);
+  border: 1.5px solid var(--neon-purple);
+  color: var(--text-main);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.role-manage-btn:hover {
+  border-color: var(--gold-primary);
+  color: var(--gold-primary);
+}
+.role-manage-btn.kick-danger {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+.role-manage-btn.kick-danger:hover {
+  background: #e74c3c;
+  color: #fff;
+}
+
 
 

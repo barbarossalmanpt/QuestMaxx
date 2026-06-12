@@ -23,11 +23,31 @@ service cloud.firestore {
     match /taverns/{tavernId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && (resource.data.ownerUid == request.auth.uid || request.resource.data.members.hasAll(resource.data.members));
+      allow update: if request.auth != null && (
+        // 1. Leader (ownerUid) can update anything
+        resource.data.ownerUid == request.auth.uid ||
+        // 2. Co-leaders can update settings/members
+        (resource.data.coLeaders != null && request.auth.uid in resource.data.coLeaders) ||
+        // 3. Normal joining if public
+        (
+          (resource.data.status == null || resource.data.status == 'public') &&
+          (resource.data.minLevel == null || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.level >= resource.data.minLevel) &&
+          request.resource.data.members.hasAll(resource.data.members) &&
+          request.resource.data.members.size() == resource.data.members.size() + 1 &&
+          request.resource.data.members.hasAny([request.auth.uid])
+        )
+      );
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
       
       match /chat/{messageId} {
         allow read, create: if request.auth != null;
-        allow update, delete: if false; // Messages are immutable
+        // Leader or Co-leaders can update chat messages (like marking invite requests as accepted/declined)
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/taverns/$(tavernId)).data.ownerUid == request.auth.uid ||
+          (get(/databases/$(database)/documents/taverns/$(tavernId)).data.coLeaders != null &&
+           request.auth.uid in get(/databases/$(database)/documents/taverns/$(tavernId)).data.coLeaders)
+        );
+        allow delete: if false; // Messages are immutable
       }
     }
   }

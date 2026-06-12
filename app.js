@@ -806,11 +806,26 @@ function completeQuest(questId) {
   // Post system message to tavern chat if in a tavern
   if (currentUser && characterState.tavernId) {
     try {
-      addDoc(collection(db, 'taverns', characterState.tavernId, 'chat'), {
-        text: `🛡️ ${characterState.nickname} completed the quest "${quest.title}" (+${xpReward} XP)!`,
-        type: 'system',
-        timestamp: Date.now()
-      });
+      const isBigQuest = quest.rarity === 'epic' || quest.rarity === 'legendary' || quest.difficulty >= 3;
+      if (isBigQuest) {
+        addDoc(collection(db, 'taverns', characterState.tavernId, 'chat'), {
+          text: `🔥 EPIC FEAT! ${characterState.nickname} completed the quest "${quest.title}" (+${xpReward} XP)!`,
+          type: 'big_quest_completion',
+          meta: {
+            questTitle: quest.title,
+            questRarity: quest.rarity || 'epic',
+            xpEarned: xpReward,
+            playerName: characterState.nickname
+          },
+          timestamp: Date.now()
+        });
+      } else {
+        addDoc(collection(db, 'taverns', characterState.tavernId, 'chat'), {
+          text: `🛡️ ${characterState.nickname} completed the quest "${quest.title}" (+${xpReward} XP)!`,
+          type: 'system',
+          timestamp: Date.now()
+        });
+      }
     } catch(e) {
       console.warn("Failed to post quest completion to tavern chat", e);
     }
@@ -1148,7 +1163,14 @@ async function createTavern(name, desc, crest) {
       ownerUid: currentUser.uid,
       members: [currentUser.uid],
       code: tempCode,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      status: 'public',
+      minLevel: 1,
+      focus: 'casual',
+      motd: 'Welcome to the Tavern!',
+      crestFrame: 'shield',
+      glowTheme: 'gold',
+      coLeaders: []
     });
     
     const tavernId = tavernRef.id;
@@ -1194,6 +1216,37 @@ async function joinTavern(code) {
     
     if (gData.members.includes(currentUser.uid)) {
       alert("You are already in this tavern!");
+      return;
+    }
+
+    // Check minimum level requirement
+    const minLevel = gData.minLevel || 1;
+    if (characterState.level < minLevel) {
+      alert(`Your level (${characterState.level}) is too low! This tavern requires minimum Level ${minLevel}.`);
+      return;
+    }
+
+    // Check closed status
+    if (gData.status === 'closed') {
+      alert("This tavern is currently closed to new members.");
+      return;
+    }
+
+    // Check invite-only status
+    if (gData.status === 'invite') {
+      playSound('success');
+      await addDoc(collection(db, 'taverns', tavernDoc.id, 'chat'), {
+        senderUid: currentUser.uid,
+        senderName: characterState.nickname,
+        senderAvatarClass: characterState.avatarClass,
+        senderAvatarType: characterState.avatarType,
+        senderAvatarData: characterState.avatarData,
+        text: `${characterState.nickname} has requested to join the tavern.`,
+        type: 'join_request',
+        status: 'pending',
+        timestamp: Date.now()
+      });
+      alert("Application submitted! Tavern Leaders/Co-Leaders will review your request in the chat.");
       return;
     }
     
@@ -1287,20 +1340,40 @@ async function leaveTavern() {
 }
 
 async function kickTavernMember(memberUid, memberName) {
-  if (!activeTavern || activeTavern.ownerUid !== currentUser.uid) return;
-  
-  if (confirm(`🛡️ Leader Action: Are you sure you want to kick ${memberName} from the tavern?`)) {
+  if (!activeTavern) return;
+  const isLeader = activeTavern.ownerUid === currentUser.uid;
+  const isCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(currentUser.uid);
+  if (!isLeader && !isCoLeader) return;
+
+  // Prevent co-leaders from kicking the Leader or other Co-leaders
+  if (!isLeader) {
+    const isTargetCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(memberUid);
+    const isTargetLeader = activeTavern.ownerUid === memberUid;
+    if (isTargetCoLeader || isTargetLeader) {
+      alert("Co-Leaders cannot kick the Leader or other Co-Leaders!");
+      return;
+    }
+  }
+
+  if (confirm(`🛡️ ${isLeader ? 'Leader' : 'Co-Leader'} Action: Are you sure you want to kick ${memberName} from the tavern?`)) {
     try {
       playSound('toggleOff');
       
-      // 1. Remove from tavern document members array
+      // Remove from coLeaders array if they were a Co-Leader
+      let updatedCoLeaders = activeTavern.coLeaders || [];
+      if (updatedCoLeaders.includes(memberUid)) {
+        updatedCoLeaders = updatedCoLeaders.filter(uid => uid !== memberUid);
+      }
+      
+      // Remove from members array
       await updateDoc(doc(db, 'taverns', activeTavern.id), {
-        members: arrayRemove(memberUid)
+        members: arrayRemove(memberUid),
+        coLeaders: updatedCoLeaders
       });
       
-      // 2. Post system chat message
+      // Post system chat message
       await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
-        text: `🛡️ ${memberName} was kicked from the tavern by Leader ${characterState.nickname}.`,
+        text: `🛡️ ${memberName} was kicked from the tavern by ${isLeader ? 'Leader' : 'Co-Leader'} ${characterState.nickname}.`,
         type: 'system',
         timestamp: Date.now()
       });
@@ -1314,7 +1387,10 @@ async function kickTavernMember(memberUid, memberName) {
 }
 
 async function saveTavernEdit(newDesc, newCrest) {
-  if (!activeTavern || activeTavern.ownerUid !== currentUser.uid) return;
+  if (!activeTavern) return;
+  const isLeader = activeTavern.ownerUid === currentUser.uid;
+  const isCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(currentUser.uid);
+  if (!isLeader && !isCoLeader) return;
   
   try {
     playSound('success');
@@ -1324,13 +1400,265 @@ async function saveTavernEdit(newDesc, newCrest) {
     });
     
     await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
-      text: `🛡️ Tavern details updated by Leader ${characterState.nickname}.`,
+      text: `🛡️ Tavern details updated by ${isLeader ? 'Leader' : 'Co-Leader'} ${characterState.nickname}.`,
       type: 'system',
       timestamp: Date.now()
     });
   } catch (err) {
     console.error("Error editing tavern details:", err);
     alert("Failed to save tavern changes: " + err.message);
+  }
+}
+
+function openTavernSettingsModal() {
+  if (!activeTavern) return;
+  playSound('modalOpen');
+
+  // Set inputs to match activeTavern state
+  document.getElementById('settings-tavern-status').value = activeTavern.status || 'public';
+  document.getElementById('settings-tavern-min-level').value = activeTavern.minLevel || 1;
+  document.getElementById('settings-min-level-val').textContent = activeTavern.minLevel || 1;
+  document.getElementById('settings-tavern-focus').value = activeTavern.focus || 'casual';
+  document.getElementById('settings-tavern-motd').value = activeTavern.motd || '';
+  document.getElementById('settings-tavern-frame').value = activeTavern.crestFrame || 'shield';
+
+  // Highlight current theme
+  const currentTheme = activeTavern.glowTheme || 'gold';
+  const themeBtns = document.querySelectorAll('.theme-picker .theme-btn');
+  themeBtns.forEach(btn => {
+    const isSelected = btn.getAttribute('data-theme') === currentTheme;
+    btn.classList.toggle('selected', isSelected);
+    btn.style.borderColor = isSelected ? '#fff' : 'transparent';
+  });
+
+  // Render members list for Co-leader promotions and kicking
+  renderSettingsMembersList();
+
+  document.getElementById('tavern-settings-modal').classList.add('visible');
+}
+
+async function renderSettingsMembersList() {
+  const container = document.getElementById('settings-members-list');
+  if (!container || !activeTavern) return;
+
+  container.innerHTML = '';
+  
+  const isCurrentUserOwner = activeTavern.ownerUid === currentUser.uid;
+
+  for (const memberUid of activeTavern.members) {
+    const isOwner = memberUid === activeTavern.ownerUid;
+    const isCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(memberUid);
+    
+    let roleName = '🛡️ MEMBER';
+    if (isOwner) roleName = '👑 LEADER';
+    else if (isCoLeader) roleName = '🛡️ CO-LEADER';
+
+    const memberName = friendDataCache[memberUid]?.nickname || 'HERO';
+
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'space-between';
+    row.style.gap = '8px';
+    row.style.padding = '6px 4px';
+    row.style.borderBottom = '1px solid var(--metal-iron)';
+
+    let actionsHtml = '';
+    if (memberUid !== currentUser.uid) {
+      if (isCurrentUserOwner) {
+        if (isCoLeader) {
+          actionsHtml = `
+            <div style="display: flex; gap: 4px;">
+              <button class="role-manage-btn demote-btn" data-uid="${memberUid}" data-name="${memberName}">DEMOTE</button>
+              <button class="role-manage-btn kick-danger kick-btn" data-uid="${memberUid}" data-name="${memberName}">KICK</button>
+            </div>
+          `;
+        } else if (!isOwner) {
+          actionsHtml = `
+            <div style="display: flex; gap: 4px;">
+              <button class="role-manage-btn promote-btn" data-uid="${memberUid}" data-name="${memberName}">PROMOTE</button>
+              <button class="role-manage-btn kick-danger kick-btn" data-uid="${memberUid}" data-name="${memberName}">KICK</button>
+            </div>
+          `;
+        }
+      } else {
+        const isCurrentUserCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(currentUser.uid);
+        if (isCurrentUserCoLeader && !isOwner && !isCoLeader) {
+          actionsHtml = `
+            <button class="role-manage-btn kick-danger kick-btn" data-uid="${memberUid}" data-name="${memberName}">KICK</button>
+          `;
+        }
+      }
+    }
+
+    row.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 0.85rem; font-family: var(--font-title); color: #fff;">${memberName}</span>
+        <span style="font-size: 0.7rem; color: var(--gold-primary); font-family: var(--font-body);">${roleName}</span>
+      </div>
+      ${actionsHtml}
+    `;
+
+    const promoteBtn = row.querySelector('.promote-btn');
+    if (promoteBtn) {
+      promoteBtn.addEventListener('click', async () => {
+        await toggleCoLeaderStatus(memberUid, memberName, true);
+      });
+    }
+
+    const demoteBtn = row.querySelector('.demote-btn');
+    if (demoteBtn) {
+      demoteBtn.addEventListener('click', async () => {
+        await toggleCoLeaderStatus(memberUid, memberName, false);
+      });
+    }
+
+    const kickBtn = row.querySelector('.kick-btn');
+    if (kickBtn) {
+      kickBtn.addEventListener('click', async () => {
+        await kickTavernMember(memberUid, memberName);
+        renderSettingsMembersList();
+      });
+    }
+
+    container.appendChild(row);
+  }
+}
+
+async function toggleCoLeaderStatus(memberUid, memberName, shouldPromote) {
+  if (!activeTavern || activeTavern.ownerUid !== currentUser.uid) return;
+  playSound('success');
+
+  try {
+    const updatedCoLeaders = activeTavern.coLeaders ? [...activeTavern.coLeaders] : [];
+    if (shouldPromote) {
+      if (!updatedCoLeaders.includes(memberUid)) {
+        updatedCoLeaders.push(memberUid);
+      }
+      await updateDoc(doc(db, 'taverns', activeTavern.id), {
+        coLeaders: updatedCoLeaders
+      });
+      await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
+        text: `🛡️ ${memberName} has been promoted to Co-Leader by Leader ${characterState.nickname}!`,
+        type: 'system',
+        timestamp: Date.now()
+      });
+      alert(`${memberName} is now a Co-Leader!`);
+    } else {
+      const index = updatedCoLeaders.indexOf(memberUid);
+      if (index !== -1) {
+        updatedCoLeaders.splice(index, 1);
+      }
+      await updateDoc(doc(db, 'taverns', activeTavern.id), {
+        coLeaders: updatedCoLeaders
+      });
+      await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
+        text: `🛡️ ${memberName} was demoted to Member by Leader ${characterState.nickname}.`,
+        type: 'system',
+        timestamp: Date.now()
+      });
+      alert(`${memberName} has been demoted.`);
+    }
+    renderSettingsMembersList();
+  } catch (err) {
+    console.error("Error updating coleader status:", err);
+    alert("Failed to update role: " + err.message);
+  }
+}
+
+async function saveTavernSettings() {
+  if (!activeTavern) return;
+  
+  const isLeader = activeTavern.ownerUid === currentUser.uid;
+  const isCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(currentUser.uid);
+  if (!isLeader && !isCoLeader) {
+    alert("You do not have permission to modify settings!");
+    return;
+  }
+
+  const status = document.getElementById('settings-tavern-status').value;
+  const minLevel = parseInt(document.getElementById('settings-tavern-min-level').value) || 1;
+  const focus = document.getElementById('settings-tavern-focus').value;
+  const motd = document.getElementById('settings-tavern-motd').value.trim();
+  const crestFrame = document.getElementById('settings-tavern-frame').value;
+  
+  const selectedThemeBtn = document.querySelector('.theme-picker .theme-btn.selected');
+  const glowTheme = selectedThemeBtn ? selectedThemeBtn.getAttribute('data-theme') : 'gold';
+
+  try {
+    playSound('success');
+    await updateDoc(doc(db, 'taverns', activeTavern.id), {
+      status: status,
+      minLevel: minLevel,
+      focus: focus,
+      motd: motd,
+      crestFrame: crestFrame,
+      glowTheme: glowTheme
+    });
+
+    await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
+      text: `🛡️ Tavern settings updated by ${isLeader ? 'Leader' : 'Co-Leader'} ${characterState.nickname}.`,
+      type: 'system',
+      timestamp: Date.now()
+    });
+
+    document.getElementById('tavern-settings-modal').classList.remove('visible');
+    alert("Tavern settings saved successfully!");
+  } catch (err) {
+    console.error("Error saving tavern settings:", err);
+    alert("Failed to save settings: " + err.message);
+  }
+}
+
+async function acceptTavernApplication(msgId, userUid, userName) {
+  if (!activeTavern) return;
+  
+  try {
+    if (activeTavern.members.includes(userUid)) {
+      alert("User is already a member of this tavern!");
+      await updateDoc(doc(db, 'taverns', activeTavern.id, 'chat', msgId), {
+        status: 'accepted'
+      });
+      return;
+    }
+
+    if (activeTavern.members.length >= 30) {
+      alert("Tavern is full!");
+      return;
+    }
+
+    await updateDoc(doc(db, 'taverns', activeTavern.id), {
+      members: arrayUnion(userUid)
+    });
+
+    await updateDoc(doc(db, 'taverns', activeTavern.id, 'chat', msgId), {
+      status: 'accepted'
+    });
+
+    await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
+      text: `🚪 ${userName} was accepted into the tavern!`,
+      type: 'system',
+      timestamp: Date.now()
+    });
+
+    alert(`Accepted ${userName} into the tavern!`);
+  } catch (err) {
+    console.error("Error accepting application:", err);
+    alert("Failed to accept: " + err.message);
+  }
+}
+
+async function declineTavernApplication(msgId) {
+  if (!activeTavern) return;
+
+  try {
+    await updateDoc(doc(db, 'taverns', activeTavern.id, 'chat', msgId), {
+      status: 'declined'
+    });
+    alert("Application declined.");
+  } catch (err) {
+    console.error("Error declining application:", err);
+    alert("Failed to decline: " + err.message);
   }
 }
 
@@ -1542,12 +1870,51 @@ function handleTavernSubscription(newTavernId) {
     document.getElementById('tavern-hub-desc').textContent = gData.description || '';
     document.getElementById('tavern-hub-code').textContent = gData.code || '';
     document.getElementById('tavern-hub-count').textContent = `${gData.members.length}/30`;
+
+    // Render crest frame shape
+    const crestFrameEl = document.getElementById('tavern-hub-crest-frame');
+    if (crestFrameEl) {
+      crestFrameEl.className = 'avatar-frame crest-frame-' + (gData.crestFrame || 'shield');
+    }
+
+    // Render glow theme
+    const tavernPanelEl = document.getElementById('tavern-panel');
+    if (tavernPanelEl) {
+      tavernPanelEl.classList.remove('theme-gold', 'theme-purple', 'theme-red', 'theme-green', 'theme-blue');
+      tavernPanelEl.classList.add('theme-' + (gData.glowTheme || 'gold'));
+    }
+
+    // Render focus tag
+    const focusTagEl = document.getElementById('tavern-hub-focus-tag');
+    if (focusTagEl) {
+      const focusLabels = {
+        casual: '⚔️ CASUAL',
+        coop: '🤝 CO-OP',
+        hardcore: '🔥 HARDCORE',
+        social: '🍻 SOCIAL'
+      };
+      focusTagEl.textContent = 'FOCUS: ' + (focusLabels[gData.focus] || '⚔️ CASUAL');
+    }
+
+    // Render MOTD / welcome notice board
+    const motdContainerEl = document.getElementById('tavern-motd-container');
+    const motdTextEl = document.getElementById('tavern-motd-text');
+    if (motdContainerEl && motdTextEl) {
+      if (gData.motd && gData.motd.trim()) {
+        motdContainerEl.classList.remove('hidden');
+        motdTextEl.textContent = gData.motd;
+      } else {
+        motdContainerEl.classList.add('hidden');
+      }
+    }
     
-    // Toggle leader actions
+    // Toggle leader & co-leader actions
     const isLeader = gData.ownerUid === currentUser.uid;
+    const isCoLeader = gData.coLeaders && gData.coLeaders.includes(currentUser.uid);
+    const isStaff = isLeader || isCoLeader;
     const actionsEl = document.getElementById('tavern-leader-actions');
     if (actionsEl) {
-      if (isLeader) actionsEl.classList.remove('hidden');
+      if (isStaff) actionsEl.classList.remove('hidden');
       else actionsEl.classList.add('hidden');
     }
     
@@ -1582,11 +1949,98 @@ function handleTavernSubscription(newTavernId) {
       if (msg.type === 'system') {
         item.className = 'chat-msg system';
         item.textContent = msg.text;
+      } else if (msg.type === 'big_quest_completion') {
+        item.className = 'chat-msg big-quest-completion';
+        item.innerHTML = `
+          <div class="big-quest-content">
+            <span class="big-quest-crown">👑</span>
+            <div class="big-quest-details">
+              <h4 class="big-quest-title-text">🔥 EPIC FEAT!</h4>
+              <p class="big-quest-desc-text"><strong>${msg.meta?.playerName || msg.senderName || 'HERO'}</strong> completed the ${msg.meta?.questRarity?.toUpperCase() || 'EPIC'} Quest:</p>
+              <div class="big-quest-name">"${msg.meta?.questTitle || msg.text}"</div>
+              <div class="big-quest-xp-reward">+${msg.meta?.xpEarned || 0} XP FOR THE TAVERN</div>
+            </div>
+          </div>
+        `;
+      } else if (msg.type === 'join_request') {
+        item.className = 'chat-msg';
+        
+        let avatarHtml = '';
+        if (msg.senderAvatarType === 'custom' && msg.senderAvatarData) {
+          avatarHtml = `<img src="${msg.senderAvatarData}" class="chat-msg-mini-avatar">`;
+        } else {
+          avatarHtml = `<span class="chat-msg-avatar-icon">${AVATAR_PRESETS[msg.senderAvatarClass] || '⚔️'}</span>`;
+        }
+
+        const isLeaderOrCoLeader = activeTavern && (
+          activeTavern.ownerUid === currentUser.uid ||
+          (activeTavern.coLeaders && activeTavern.coLeaders.includes(currentUser.uid))
+        );
+        
+        const isPending = msg.status === 'pending';
+        let actionButtons = '';
+        if (isLeaderOrCoLeader && isPending) {
+          actionButtons = `
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="stone-button success-btn accept-join-btn" data-msg-id="${docSnap.id}" data-user-uid="${msg.senderUid}" data-user-name="${msg.senderName}" style="padding: 4px 10px; font-size: 0.65rem;">ACCEPT</button>
+              <button class="stone-button decline-join-btn" data-msg-id="${docSnap.id}" style="padding: 4px 10px; font-size: 0.65rem; border-color: #e74c3c; color: #e74c3c;">DECLINE</button>
+            </div>
+          `;
+        } else if (!isPending) {
+          actionButtons = `
+            <div style="margin-top: 6px; font-size: 0.75rem; font-family: var(--font-title); color: ${msg.status === 'accepted' ? 'var(--emerald)' : '#e74c3c'};">
+              ${msg.status === 'accepted' ? '✓ ACCEPTED' : '✗ DECLINED'}
+            </div>
+          `;
+        }
+
+        const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        item.innerHTML = `
+          <div class="chat-msg-header">
+            ${avatarHtml}
+            <span class="chat-msg-sender">${msg.senderName}</span>
+            <span class="chat-msg-role-badge member" style="background:#f1c40f; color:#000;">APPLICANT</span>
+            <span class="chat-msg-time">${timeStr}</span>
+          </div>
+          <div class="chat-msg-text" style="color: var(--gold-bright); font-style: italic;">
+            ${msg.text}
+          </div>
+          ${actionButtons}
+        `;
+
+        if (isLeaderOrCoLeader && isPending) {
+          const acceptBtn = item.querySelector('.accept-join-btn');
+          if (acceptBtn) {
+            acceptBtn.addEventListener('click', async () => {
+              playSound('success');
+              const msgId = acceptBtn.getAttribute('data-msg-id');
+              const userUid = acceptBtn.getAttribute('data-user-uid');
+              const userName = acceptBtn.getAttribute('data-user-name');
+              await acceptTavernApplication(msgId, userUid, userName);
+            });
+          }
+
+          const declineBtn = item.querySelector('.decline-join-btn');
+          if (declineBtn) {
+            declineBtn.addEventListener('click', async () => {
+              playSound('toggleOff');
+              const msgId = declineBtn.getAttribute('data-msg-id');
+              await declineTavernApplication(msgId);
+            });
+          }
+        }
       } else {
         const isSenderLeader = activeTavern && msg.senderUid === activeTavern.ownerUid;
-        const roleHtml = isSenderLeader ? 
-          `<span class="chat-msg-role-badge leader">LEADER</span>` : 
-          `<span class="chat-msg-role-badge member">MEMBER</span>`;
+        const isSenderCoLeader = activeTavern && activeTavern.coLeaders && activeTavern.coLeaders.includes(msg.senderUid);
+        
+        let roleHtml = '';
+        if (isSenderLeader) {
+          roleHtml = `<span class="chat-msg-role-badge leader">👑 LEADER</span>`;
+        } else if (isSenderCoLeader) {
+          roleHtml = `<span class="chat-msg-role-badge coleader">🛡️ CO-LEADER</span>`;
+        } else {
+          roleHtml = `<span class="chat-msg-role-badge member">🛡️ MEMBER</span>`;
+        }
           
         let avatarHtml = '';
         if (msg.senderAvatarType === 'custom' && msg.senderAvatarData) {
@@ -1623,7 +2077,6 @@ function handleTavernSubscription(newTavernId) {
             </div>
           `;
           
-          // Wire join event
           const joinBtn = item.querySelector('.chat-quest-join-btn');
           if (joinBtn) {
             joinBtn.addEventListener('click', () => {
@@ -1778,21 +2231,34 @@ async function renderPublicTavernsList() {
       return;
     }
     
+    let publicCount = 0;
     snap.docs.forEach(docSnap => {
       const g = docSnap.data();
+      if (g.status === 'closed' || g.status === 'invite') return;
+      
+      const focusLabels = {
+        casual: '⚔️ CASUAL',
+        coop: '🤝 CO-OP',
+        hardcore: '🔥 HARDCORE',
+        social: '🍻 SOCIAL'
+      };
+      const focusText = focusLabels[g.focus] || '⚔️ CASUAL';
+
       const item = document.createElement('div');
       item.className = 'tavern-list-item';
       item.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px; text-align: left;">
           <span style="font-size: 1.5rem;">${g.crest || '🛡️'}</span>
           <div style="display: flex; flex-direction: column;">
             <strong style="color: var(--gold-primary); font-size: 0.9rem;">${g.name}</strong>
-            <span style="font-size: 0.75rem; color: var(--text-dim); max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${g.description}</span>
+            <span style="font-size: 0.75rem; color: var(--text-dim); max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${g.description || ''}</span>
+            <span style="font-size: 0.65rem; color: var(--gold-bright); margin-top: 2px;">${focusText}</span>
           </div>
         </div>
-        <div style="text-align: right; font-size: 0.8rem;">
+        <div style="text-align: right; font-size: 0.8rem; display: flex; flex-direction: column; align-items: flex-end; justify-content: center;">
           <span style="color: var(--emerald); font-weight: bold;">${g.code}</span>
           <div style="color: var(--text-dim); font-size: 0.7rem; margin-top: 2px;">${g.members.length}/30</div>
+          ${g.minLevel && g.minLevel > 1 ? `<div style="color: #e74c3c; font-size: 0.65rem; margin-top: 2px; white-space: nowrap;">REQ LVL ${g.minLevel}</div>` : ''}
         </div>
       `;
       
@@ -1805,7 +2271,12 @@ async function renderPublicTavernsList() {
       });
       
       container.appendChild(item);
+      publicCount++;
     });
+
+    if (publicCount === 0) {
+      container.innerHTML = '<p class="empty-journal-msg" style="text-align: center; padding: 15px;">No active public taverns. Be the first to create one!</p>';
+    }
   } catch (e) {
     console.error("Error loading public taverns:", e);
   }
@@ -3140,7 +3611,21 @@ document.addEventListener('DOMContentLoaded', () => {
             await setDoc(doc(db, 'friendCodes', friendCode), { uid: user.uid });
           }
           
-          const newTavernId = data.tavernId || '';
+          let newTavernId = data.tavernId || '';
+          if (!newTavernId) {
+            try {
+              const q = query(collection(db, 'taverns'), where('members', 'array-contains', user.uid));
+              const querySnap = await getDocs(q);
+              if (!querySnap.empty) {
+                newTavernId = querySnap.docs[0].id;
+                characterState.tavernId = newTavernId;
+                await updateDoc(doc(db, 'users', user.uid), { tavernId: newTavernId });
+                return;
+              }
+            } catch (err) {
+              console.warn("Could not check tavern membership offline/online", err);
+            }
+          }
           characterState.tavernId = newTavernId;
           handleTavernSubscription(newTavernId);
 
@@ -3351,6 +3836,64 @@ document.addEventListener('DOMContentLoaded', () => {
     btnTavernEditClose.addEventListener('click', () => {
       playSound('click');
       document.getElementById('tavern-edit-modal').classList.remove('visible');
+    });
+  }
+
+  // Tavern settings triggers
+  const btnTavernSettings = document.getElementById('btn-tavern-settings');
+  if (btnTavernSettings) {
+    btnTavernSettings.addEventListener('click', () => {
+      openTavernSettingsModal();
+    });
+  }
+
+  const btnTavernSettingsClose = document.getElementById('tavern-settings-modal-close');
+  if (btnTavernSettingsClose) {
+    btnTavernSettingsClose.addEventListener('click', () => {
+      playSound('click');
+      document.getElementById('tavern-settings-modal').classList.remove('visible');
+    });
+  }
+
+  const btnTavernSettingsSave = document.getElementById('btn-settings-save');
+  if (btnTavernSettingsSave) {
+    btnTavernSettingsSave.addEventListener('click', async () => {
+      await saveTavernSettings();
+    });
+  }
+
+  const settingsMinLevel = document.getElementById('settings-tavern-min-level');
+  if (settingsMinLevel) {
+    settingsMinLevel.addEventListener('input', (e) => {
+      document.getElementById('settings-min-level-val').textContent = e.target.value;
+    });
+  }
+
+  const themeBtns = document.querySelectorAll('.theme-picker .theme-btn');
+  themeBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      playSound('click');
+      themeBtns.forEach(b => {
+        b.classList.remove('selected');
+        b.style.borderColor = 'transparent';
+      });
+      e.currentTarget.classList.add('selected');
+      e.currentTarget.style.borderColor = '#fff';
+    });
+  });
+
+  const codePlaque = document.querySelector('.tavern-code-plaque');
+  if (codePlaque) {
+    codePlaque.addEventListener('click', () => {
+      const code = document.getElementById('tavern-hub-code').textContent;
+      if (code && code !== 'TV-XXXX') {
+        navigator.clipboard.writeText(code).then(() => {
+          playSound('success');
+          alert(`Tavern Code "${code}" copied to clipboard! Share it with your friends!`);
+        }).catch(err => {
+          console.error("Failed to copy code to clipboard", err);
+        });
+      }
     });
   }
 

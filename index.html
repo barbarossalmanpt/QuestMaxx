@@ -283,6 +283,83 @@
     </div>
   </div>
 
+  <!-- Tavern Settings Modal (Overlay) -->
+  <div id="tavern-settings-modal" class="choice-overlay">
+    <div class="choice-modal friends-modal-content" style="max-height: 85vh; overflow-y: auto; width: 90%; max-width: 400px; padding: 15px 20px;">
+      <h2 class="choice-modal-title">⚙️ TAVERN SETTINGS</h2>
+      
+      <div style="width: 100%; display: flex; flex-direction: column; gap: 12px;">
+        <!-- Status Selection -->
+        <div class="settings-group">
+          <label class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">TAVERN STATUS</label>
+          <select id="settings-tavern-status" class="retro-input select-input" style="width: 100%; text-align-last: center;">
+            <option value="public">🌍 PUBLIC (ANYONE CAN JOIN)</option>
+            <option value="invite">✉️ INVITE ONLY (APPLY TO JOIN)</option>
+            <option value="closed">🔒 CLOSED (NO NEW MEMBERS)</option>
+          </select>
+        </div>
+
+        <!-- Min Level Requirement -->
+        <div class="settings-group">
+          <label id="settings-min-level-label" class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">MIN LEVEL REQUIREMENT: <span id="settings-min-level-val" style="color: #fff;">1</span></label>
+          <input type="range" id="settings-tavern-min-level" min="1" max="20" value="1" style="width: 100%; accent-color: var(--gold-primary);">
+        </div>
+
+        <!-- Tavern Focus -->
+        <div class="settings-group">
+          <label class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">TAVERN FOCUS</label>
+          <select id="settings-tavern-focus" class="retro-input select-input" style="width: 100%; text-align-last: center;">
+            <option value="casual">⚔️ CASUAL</option>
+            <option value="coop">🤝 CO-OP</option>
+            <option value="hardcore">🔥 HARDCORE</option>
+            <option value="social">🍻 SOCIAL</option>
+          </select>
+        </div>
+
+        <!-- Notice Board (MOTD) -->
+        <div class="settings-group">
+          <label class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">NOTICE BOARD (MOTD)</label>
+          <input type="text" id="settings-tavern-motd" placeholder="WELCOME NOTICE..." maxlength="80" class="retro-input" style="width: 100%;">
+        </div>
+
+        <!-- Crest Frame Style -->
+        <div class="settings-group">
+          <label class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">CREST FRAME STYLE</label>
+          <select id="settings-tavern-frame" class="retro-input select-input" style="width: 100%; text-align-last: center;">
+            <option value="shield">🛡️ SHIELD FRAME</option>
+            <option value="octagon">🛑 OCTAGON FRAME</option>
+            <option value="circular">🔘 CIRCULAR FRAME</option>
+          </select>
+        </div>
+
+        <!-- Glow Theme Color -->
+        <div class="settings-group">
+          <label class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">TAVERN GLOW THEME</label>
+          <div class="theme-picker" style="display: flex; gap: 8px; justify-content: space-between; margin-top: 5px;">
+            <button type="button" class="theme-btn theme-btn-gold selected" data-theme="gold" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; background: #f4c430; cursor: pointer; box-shadow: 0 0 8px rgba(244,196,48,0.5);"></button>
+            <button type="button" class="theme-btn theme-btn-purple" data-theme="purple" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #9b59b6; cursor: pointer;"></button>
+            <button type="button" class="theme-btn theme-btn-red" data-theme="red" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #e74c3c; cursor: pointer;"></button>
+            <button type="button" class="theme-btn theme-btn-green" data-theme="green" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #2ecc71; cursor: pointer;"></button>
+            <button type="button" class="theme-btn theme-btn-blue" data-theme="blue" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: #3498db; cursor: pointer;"></button>
+          </div>
+        </div>
+
+        <!-- Co-Leader Role Management & Member Actions (Visible only to Leader) -->
+        <div class="settings-group" id="settings-members-management-section">
+          <label class="settings-label" style="font-family: var(--font-title); font-size: 0.55rem; color: var(--gold-primary); display: block; margin-bottom: 4px;">TAVERN MEMBERS & ROLES</label>
+          <div id="settings-members-list" style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px; max-height: 150px; overflow-y: auto; background: var(--bg-deep); padding: 5px; border-radius: 4px; border: 1px solid var(--metal-iron); text-align: left;">
+            <!-- Populated dynamically: Member name, Role badge, Promote/Demote button, Kick button -->
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; width: 100%; margin-top: 15px;">
+        <button id="btn-settings-save" class="stone-button success-btn" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">SAVE SETTINGS</button>
+        <button id="tavern-settings-modal-close" class="choice-close-btn" style="flex: 1; margin: 0; padding: 10px 0; font-size: 0.75rem;">✕ CANCEL</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Swipeable Layout Container -->
   <div class="swipe-container">
     
@@ -531,30 +608,45 @@
         <!-- Tab 1 CONTENT: Tavern Hub Home (Crest Card + Leaderboard) -->
         <div id="tavern-hub-home-content" style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
           
+          <!-- Tavern Welcome Announcement Plaque -->
+          <div id="tavern-motd-container" class="profile-card hidden" style="padding: 10px 15px; border-color: var(--gold-primary); background: rgba(244,196,48,0.05); width: 100%; box-sizing: border-box;">
+            <h4 style="font-family: var(--font-title); font-size: 0.65rem; color: var(--gold-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 5px; margin-top: 0;">
+              <span>📢</span> TAVERN NOTICE:
+            </h4>
+            <p id="tavern-motd-text" style="font-size: 0.9rem; color: var(--text-main); font-style: italic; line-height: 1.2; margin: 0; word-break: break-word;">Welcome to the Tavern!</p>
+          </div>
+
           <!-- Clash Royale Tavern Profile Card -->
           <div class="profile-card" style="padding: 15px; position: relative; border-color: var(--gold-primary); width: 100%;">
             <div style="display: flex; gap: 15px; align-items: center;">
               <!-- Large Crest Badge on Left -->
               <div class="avatar-container" style="margin-bottom: 0;">
-                <div class="avatar-frame" style="width: 65px; height: 65px; border-color: var(--gold-primary); background: var(--bg-deep);">
+                <div id="tavern-hub-crest-frame" class="avatar-frame crest-frame-shield" style="width: 65px; height: 65px; border-color: var(--gold-primary); background: var(--bg-deep);">
                   <span id="tavern-hub-crest" style="font-size: 2.2rem; display: flex; align-items: center; justify-content: center; height: 100%;">🛡️</span>
                 </div>
               </div>
               
               <!-- Tavern Name & Description on Right -->
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0;">
                 <h2 id="tavern-hub-name" style="font-family: var(--font-title); font-size: 0.95rem; color: var(--gold-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">TAVERN NAME</h2>
                 <p id="tavern-hub-desc" style="font-size: 0.85rem; color: var(--text-dim); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; line-height: 1.1;">Tavern description goes here.</p>
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-main); margin-top: 3px;">
-                  <span>CODE: <strong id="tavern-hub-code" style="color: var(--gold-bright);">TV-XXXX</strong></span>
-                  <span>MEMBERS: <strong id="tavern-hub-count" style="color: var(--emerald);">1/30</strong></span>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-top: 2px;">
+                  <div class="tavern-code-plaque" title="Click to Copy Code">
+                    <span style="font-size: 0.6rem; opacity: 0.8;">CODE:</span>
+                    <strong id="tavern-hub-code">TV-XXXX</strong>
+                  </div>
+                  <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                    <span style="font-size: 0.75rem; white-space: nowrap;">MEMBERS: <strong id="tavern-hub-count" style="color: var(--emerald);">1/30</strong></span>
+                    <span style="font-size: 0.65rem; color: var(--text-dim); white-space: nowrap;" id="tavern-hub-focus-tag">FOCUS: ⚔️ CASUAL</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Leader Actions Panel (Edit/Kick triggers) -->
+            <!-- Leader Actions Panel (Edit/Kick/Settings triggers) -->
             <div id="tavern-leader-actions" style="margin-top: 10px; display: flex; gap: 10px;" class="hidden">
               <button id="btn-tavern-edit" class="stone-button small-btn" style="flex: 1; font-size: 0.65rem; padding: 4px;">EDIT DETAILS</button>
+              <button id="btn-tavern-settings" class="stone-button small-btn" style="flex: 1; font-size: 0.65rem; padding: 4px; border-color: var(--gold-primary);">⚙️ SETTINGS</button>
             </div>
             
             <button id="btn-tavern-leave" class="stone-button small-btn" style="margin-top: 10px; width: 100%; border-color: #e74c3c; color: #e74c3c; padding: 6px 0; font-size: 0.75rem;">LEAVE TAVERN</button>
@@ -577,9 +669,9 @@
             </div>
           </div>
           
-          <div style="display: flex; gap: 10px; padding-top: 5px; width: 100%;">
+          <div style="display: flex; gap: 10px; padding-top: 5px; width: 100%; align-items: center;">
             <input type="text" id="tavern-chat-input" placeholder="TYPE MESSAGE..." class="retro-input" style="flex: 1;" maxlength="100">
-            <button id="btn-tavern-chat-send" class="stone-button success-btn" style="padding: 0 15px;">SEND</button>
+            <button id="btn-tavern-chat-send" class="stone-button success-btn" style="width: 45px; height: 45px; min-width: 45px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; padding: 0;">➔</button>
           </div>
         </div>
       </div>
