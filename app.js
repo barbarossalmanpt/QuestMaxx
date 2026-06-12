@@ -1,7 +1,7 @@
 import { QUESTS } from './quests.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // --- Global State ---
 let isMuted = false;
@@ -50,14 +50,12 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
 
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code == 'failed-precondition') {
-    console.warn("Firestore offline persistence failed-precondition (multiple tabs open)");
-  } else if (err.code == 'unimplemented') {
-    console.warn("Firestore offline persistence unimplemented by current browser");
-  }
+// Modern Firestore Local Cache setup
+const db = initializeFirestore(firebaseApp, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 });
 
 let currentUser = null;
@@ -1170,7 +1168,10 @@ async function createTavern(name, desc, crest) {
       motd: 'Welcome to the Tavern!',
       crestFrame: 'shield',
       glowTheme: 'gold',
-      coLeaders: []
+      coLeaders: [],
+      leaderTitle: '👑 LEADER',
+      coleaderTitle: '🛡️ CO-LEADER',
+      memberTitle: '🛡️ MEMBER'
     });
     
     const tavernId = tavernRef.id;
@@ -1421,6 +1422,9 @@ function openTavernSettingsModal() {
   document.getElementById('settings-tavern-focus').value = activeTavern.focus || 'casual';
   document.getElementById('settings-tavern-motd').value = activeTavern.motd || '';
   document.getElementById('settings-tavern-frame').value = activeTavern.crestFrame || 'shield';
+  document.getElementById('settings-role-leader').value = activeTavern.leaderTitle || '👑 LEADER';
+  document.getElementById('settings-role-coleader').value = activeTavern.coleaderTitle || '🛡️ CO-LEADER';
+  document.getElementById('settings-role-member').value = activeTavern.memberTitle || '🛡️ MEMBER';
 
   // Highlight current theme
   const currentTheme = activeTavern.glowTheme || 'gold';
@@ -1449,9 +1453,9 @@ async function renderSettingsMembersList() {
     const isOwner = memberUid === activeTavern.ownerUid;
     const isCoLeader = activeTavern.coLeaders && activeTavern.coLeaders.includes(memberUid);
     
-    let roleName = '🛡️ MEMBER';
-    if (isOwner) roleName = '👑 LEADER';
-    else if (isCoLeader) roleName = '🛡️ CO-LEADER';
+    let roleName = activeTavern.memberTitle || '🛡️ MEMBER';
+    if (isOwner) roleName = activeTavern.leaderTitle || '👑 LEADER';
+    else if (isCoLeader) roleName = activeTavern.coleaderTitle || '🛡️ CO-LEADER';
 
     const memberName = friendDataCache[memberUid]?.nickname || 'HERO';
 
@@ -1582,6 +1586,10 @@ async function saveTavernSettings() {
   const motd = document.getElementById('settings-tavern-motd').value.trim();
   const crestFrame = document.getElementById('settings-tavern-frame').value;
   
+  const leaderTitle = document.getElementById('settings-role-leader').value.trim() || '👑 LEADER';
+  const coleaderTitle = document.getElementById('settings-role-coleader').value.trim() || '🛡️ CO-LEADER';
+  const memberTitle = document.getElementById('settings-role-member').value.trim() || '🛡️ MEMBER';
+  
   const selectedThemeBtn = document.querySelector('.theme-picker .theme-btn.selected');
   const glowTheme = selectedThemeBtn ? selectedThemeBtn.getAttribute('data-theme') : 'gold';
 
@@ -1593,7 +1601,10 @@ async function saveTavernSettings() {
       focus: focus,
       motd: motd,
       crestFrame: crestFrame,
-      glowTheme: glowTheme
+      glowTheme: glowTheme,
+      leaderTitle: leaderTitle,
+      coleaderTitle: coleaderTitle,
+      memberTitle: memberTitle
     });
 
     await addDoc(collection(db, 'taverns', activeTavern.id, 'chat'), {
@@ -2035,11 +2046,14 @@ function handleTavernSubscription(newTavernId) {
         
         let roleHtml = '';
         if (isSenderLeader) {
-          roleHtml = `<span class="chat-msg-role-badge leader">👑 LEADER</span>`;
+          const title = activeTavern.leaderTitle || '👑 LEADER';
+          roleHtml = `<span class="chat-msg-role-badge leader">${title}</span>`;
         } else if (isSenderCoLeader) {
-          roleHtml = `<span class="chat-msg-role-badge coleader">🛡️ CO-LEADER</span>`;
+          const title = activeTavern.coleaderTitle || '🛡️ CO-LEADER';
+          roleHtml = `<span class="chat-msg-role-badge coleader">${title}</span>`;
         } else {
-          roleHtml = `<span class="chat-msg-role-badge member">🛡️ MEMBER</span>`;
+          const title = activeTavern.memberTitle || '🛡️ MEMBER';
+          roleHtml = `<span class="chat-msg-role-badge member">${title}</span>`;
         }
           
         let avatarHtml = '';
@@ -2169,6 +2183,19 @@ function subscribeToLeaderboard(memberUids) {
         avatarHtml = AVATAR_PRESETS[m.avatarClass] || '⚔️';
       }
       
+      const isOwner = activeTavern && m.uid === activeTavern.ownerUid;
+      const isCoLeader = activeTavern && activeTavern.coLeaders && activeTavern.coLeaders.includes(m.uid);
+      let roleBadge = '';
+      if (activeTavern) {
+        if (isOwner) {
+          const titleText = activeTavern.leaderTitle || '👑 LEADER';
+          roleBadge = `<span style="font-size:0.55rem; padding: 2px 4px; background:var(--gold-primary); color:#000; border-radius:2px; margin-left: 5px; font-family:var(--font-title); font-weight:bold; vertical-align:middle; text-transform:uppercase;">${titleText}</span>`;
+        } else if (isCoLeader) {
+          const titleText = activeTavern.coleaderTitle || '🛡️ CO-LEADER';
+          roleBadge = `<span style="font-size:0.55rem; padding: 2px 4px; background:#3498db; color:#fff; border-radius:2px; margin-left: 5px; font-family:var(--font-title); font-weight:bold; vertical-align:middle; text-transform:uppercase;">${titleText}</span>`;
+        }
+      }
+
       let kickHtml = '';
       if (activeTavern && activeTavern.ownerUid === currentUser.uid && m.uid !== currentUser.uid) {
         kickHtml = `<button class="member-kick-btn" data-uid="${m.uid}" data-name="${m.name}">KICK</button>`;
@@ -2178,12 +2205,12 @@ function subscribeToLeaderboard(memberUids) {
         <div class="leaderboard-member-info">
           <span class="leaderboard-rank" style="font-size: 1.1rem; min-width: 20px; text-align: center;">${rankBadge}</span>
           <span class="leaderboard-avatar" style="font-size: 1.1rem; display: flex; align-items: center;">${avatarHtml}</span>
-          <span class="leaderboard-name">${m.name}</span>
+          <span class="leaderboard-name" style="display:flex; align-items:center; gap:5px;">${m.name}${roleBadge}</span>
           ${kickHtml}
         </div>
         <div class="leaderboard-xp">
           <span>LVL ${m.level}</span>
-          <span class="leaderboard-xp-val">(${m.xp} XP)</span>
+          <span class="leaderboard-xp-val">(XP ${m.xp})</span>
         </div>
       `;
       
