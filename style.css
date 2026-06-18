@@ -79,17 +79,12 @@ body {
   font-size: 18px;
   background-color: var(--bg-deep);
   background-image: 
-    /* Warm torch glow from bottom corners */
-    radial-gradient(ellipse at 10% 90%, rgba(232, 132, 42, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 90% 90%, rgba(232, 132, 42, 0.12) 0%, transparent 50%),
-    /* Faint purple dungeon atmosphere at top */
-    radial-gradient(ellipse at 50% 10%, rgba(90, 60, 130, 0.10) 0%, transparent 60%),
-    /* Center dark vignette */
-    radial-gradient(circle at 50% 50%, transparent 20%, rgba(0,0,0,0.6) 100%),
-    /* Actual tiling pixel-art stone wall texture */
-    url('background.png');
-  background-repeat: repeat;
-  background-size: 256px 256px;
+    /* Dark overlay/vignette to ensure readability */
+    radial-gradient(circle at 50% 50%, rgba(13, 11, 20, 0.45) 0%, rgba(13, 11, 20, 0.85) 100%),
+    url('background_village.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   image-rendering: pixelated;
 }
 
@@ -401,7 +396,13 @@ body::after {
 .choice-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(5, 3, 10, 0.88);
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(5, 3, 10, 0.45) 0%, rgba(5, 3, 10, 0.88) 100%),
+    url('background_campfire.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
   z-index: 200;
   display: flex;
   align-items: center;
