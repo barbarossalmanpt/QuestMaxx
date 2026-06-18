@@ -315,9 +315,78 @@ function playSound(type) {
         subOsc.start(now + idx * 0.05);
         subOsc.stop(now + 0.7 + idx * 0.05);
       });
-      break;
   }
 }
+
+// --- Custom In-App Alert Overlay / Toast ---
+window.alert = function (message) {
+  // Try to play alert sound if playSound is available
+  try {
+    if (typeof playSound === 'function') {
+      const msgLower = String(message).toLowerCase();
+      if (msgLower.includes('success') || msgLower.includes('joined') || msgLower.includes('accepted') || msgLower.includes('created') || msgLower.includes('completed') || msgLower.includes('level up')) {
+        playSound('success');
+      } else if (msgLower.includes('fail') || msgLower.includes('error') || msgLower.includes('invalid') || msgLower.includes('cannot')) {
+        playSound('toggleOff');
+      } else {
+        playSound('notification');
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'custom-toast';
+
+  // Choose an icon based on keywords in the message
+  let icon = '📜';
+  const msgLower = String(message).toLowerCase();
+  if (msgLower.includes('success') || msgLower.includes('joined') || msgLower.includes('accepted') || msgLower.includes('created') || msgLower.includes('completed') || msgLower.includes('level up')) {
+    icon = '🎉';
+  } else if (msgLower.includes('fail') || msgLower.includes('error') || msgLower.includes('invalid') || msgLower.includes('cannot') || msgLower.includes('not found') || msgLower.includes('full') || msgLower.includes('too low') || msgLower.includes('warning') || msgLower.includes('⚠️')) {
+    icon = '⚠️';
+  } else if (msgLower.includes('quest') || msgLower.includes('lobby') || msgLower.includes('track')) {
+    icon = '⚔️';
+  } else if (msgLower.includes('kick') || msgLower.includes('leave') || msgLower.includes('demote')) {
+    icon = '🛡️';
+  }
+
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span class="toast-content">${message}</span>
+    <button class="toast-close">DISMISS</button>
+  `;
+
+  const dismiss = () => {
+    if (toast.classList.contains('fade-out')) return;
+    toast.classList.add('fade-out');
+    toast.addEventListener('animationend', () => {
+      toast.remove();
+    });
+  };
+
+  toast.addEventListener('click', (e) => {
+    dismiss();
+  });
+
+  // Auto dismiss after 5 seconds
+  const autoDismissTimer = setTimeout(dismiss, 5000);
+
+  // Clean up timer on click dismiss
+  toast.addEventListener('click', () => {
+    clearTimeout(autoDismissTimer);
+  });
+
+  container.appendChild(toast);
+};
 
 // --- Background Particles ---
 function createParticles() {
