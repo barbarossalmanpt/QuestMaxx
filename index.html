@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   
   <!-- Styles -->
-  <link rel="stylesheet" href="style.css?v=4.4">
+  <link rel="stylesheet" href="style.css?v=4.5">
 </head>
 <body>
   <!-- Auth Screen (blocks user interaction if logged out) -->
@@ -38,7 +38,7 @@
       <div id="auth-email-screen" class="hidden" style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px;">
         <input type="email" id="auth-email" placeholder="EMAIL ADDRESS" class="retro-input" style="width: 100%;">
         <input type="password" id="auth-password" placeholder="PASSWORD" class="retro-input" style="width: 100%;">
-        <div style="display: flex; gap: 10px; margin-top: 5px;">
+        <div style="display: flex; gap: 16px; margin-top: 5px;">
           <button id="btn-auth-signin" class="stone-button success-btn" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">SIGN IN</button>
           <button id="btn-auth-signup" class="stone-button" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">REGISTER</button>
         </div>
@@ -204,7 +204,7 @@
             <span id="friend-profile-status" class="stat-value">AVAILABLE</span>
           </div>
         </div>
-        <div style="display: flex; gap: 10px; margin-top: 10px; width: 100%;">
+        <div style="display: flex; gap: 16px; margin-top: 10px; width: 100%;">
           <button id="btn-add-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: var(--emerald-bright); color: var(--emerald-bright);">ADD FRIEND</button>
           <button id="btn-remove-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: var(--danger-bright); color: var(--danger-bright);">REMOVE FRIEND</button>
         </div>
@@ -340,7 +340,7 @@
         </div>
       </div>
 
-      <div style="display: flex; gap: 10px; width: 100%; margin-top: 15px;">
+      <div style="display: flex; gap: 16px; width: 100%; margin-top: 15px;">
         <button id="btn-settings-save" class="stone-button success-btn" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">SAVE SETTINGS</button>
         <button id="tavern-settings-modal-close" class="choice-close-btn" style="flex: 1; margin: 0; padding: 10px 0; font-size: 0.75rem;">✕ CANCEL</button>
       </div>
@@ -643,7 +643,7 @@
             </div>
 
             <!-- Leader Actions Panel (Edit/Kick/Settings triggers) -->
-            <div id="tavern-leader-actions" style="margin-top: 10px; display: flex; gap: 10px;" class="hidden">
+            <div id="tavern-leader-actions" style="margin-top: 10px; display: flex; gap: 16px;" class="hidden">
               <button id="btn-tavern-edit" class="stone-button small-btn" style="flex: 1; font-size: 0.65rem; padding: 4px;">EDIT DETAILS</button>
               <button id="btn-tavern-settings" class="stone-button small-btn" style="flex: 1; font-size: 0.65rem; padding: 4px; border-color: var(--gold-primary);">⚙️ SETTINGS</button>
             </div>
@@ -668,7 +668,7 @@
             </div>
           </div>
           
-          <div style="display: flex; gap: 10px; padding-top: 5px; width: 100%; align-items: center;">
+          <div style="display: flex; gap: 16px; padding-top: 5px; width: 100%; align-items: center;">
             <input type="text" id="tavern-chat-input" placeholder="TYPE MESSAGE..." class="retro-input" style="flex: 1;" maxlength="100">
             <button id="btn-tavern-chat-send" class="stone-button success-btn" style="width: 45px; height: 45px; min-width: 45px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; padding: 0;">➔</button>
           </div>
