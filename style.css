@@ -83,12 +83,17 @@ body::before {
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: 
     /* Warm torch glow from bottom corners */
-    radial-gradient(ellipse at 10% 90%, rgba(232, 132, 42, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 90% 90%, rgba(232, 132, 42, 0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 10% 90%, rgba(232, 132, 42, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 90%, rgba(232, 132, 42, 0.12) 0%, transparent 50%),
     /* Faint purple dungeon atmosphere at top */
-    radial-gradient(ellipse at 50% 10%, rgba(90, 60, 130, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 10%, rgba(90, 60, 130, 0.10) 0%, transparent 60%),
     /* Center dark vignette */
-    radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,0,0,0.4) 100%);
+    radial-gradient(circle at 50% 50%, transparent 20%, rgba(0,0,0,0.6) 100%),
+    /* Actual tiling pixel-art stone wall texture */
+    url('background.png');
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  image-rendering: pixelated;
   z-index: -1;
   pointer-events: none;
 }
