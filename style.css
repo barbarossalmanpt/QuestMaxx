@@ -66,21 +66,18 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-body, html {
+html {
+  background-color: var(--bg-deep);
+}
+
+body {
   width: 100%;
   height: 100%;
-  background-color: var(--bg-deep);
   color: var(--text-main);
   font-family: var(--font-body);
   overflow: hidden;
   font-size: 18px;
-}
-
-/* ─── Dungeon Stone Background ─── */
-body::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: var(--bg-deep);
   background-image: 
     /* Warm torch glow from bottom corners */
     radial-gradient(ellipse at 10% 90%, rgba(232, 132, 42, 0.15) 0%, transparent 50%),
@@ -94,8 +91,6 @@ body::before {
   background-repeat: repeat;
   background-size: 256px 256px;
   image-rendering: pixelated;
-  z-index: -1;
-  pointer-events: none;
 }
 
 /* Stone texture noise overlay */
