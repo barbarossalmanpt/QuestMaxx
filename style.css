@@ -1,29 +1,61 @@
 /* 
-  QuestMax - Medieval Fantasy RPG Aesthetic (v1 Design)
-  Deep purple / gold / emerald palette
+  QuestMax — Medieval Dungeon RPG Aesthetic (v1 Concept)
+  Dark stone walls, golden torchlight, carved stone UI frames
+  Inspired by RuneScape, Tibia, Ragnarok Online pixel-art menus
 */
 
 :root {
-  --bg-deep: #1a0a2e;
-  --bg-indigo: #16213e;
-  --surface: #1e1440;
-  --panel-bg: #241848;
-  --gold-primary: #f4c430;
-  --gold-bright: #ffe066;
-  --emerald: #2ecc71;
-  --neon-purple: #9b59b6;
-  --flame-orange: #e67e22;
-  --text-main: #f0e6d3;
-  --text-dim: #a89cc8;
-  --metal-iron: #7a7a8a;
-  
-  --tier-chill: #2ecc71;
-  --tier-challenging: #3498db;
-  --tier-epic: #9b59b6;
-  --tier-legendary: #e67e22;
+  /* === DUNGEON STONE PALETTE === */
+  --bg-deep: #0d0b14;           /* Deepest dungeon black-purple */
+  --bg-stone: #12101c;          /* Dark stone floor */
+  --surface: #1a1428;           /* Stone slab surface */
+  --panel-bg: #221a30;          /* Raised stone panel */
+  --panel-raised: #2a2038;      /* Lighter stone for hover */
 
+  /* === GOLD & METAL === */
+  --gold-primary: #c8a84e;      /* Aged amber gold — frames, titles */
+  --gold-bright: #f0d060;       /* Burnished gold — highlights */
+  --gold-dark: #7a6530;         /* Tarnished gold — shadows, bevels */
+  --gold-dim: rgba(200,168,78,0.15); /* Soft gold glow */
+  --metal-iron: #4a4555;        /* Dark iron rivets */
+  --metal-light: #6a6070;       /* Lighter iron */
+  --bronze: #8a6e3a;            /* Bronze trim */
+
+  /* === WOOD & WARMTH === */
+  --wood-dark: #3a2a1a;         /* Dark oak */
+  --wood-light: #6b4c30;        /* Warm brown oak */
+  --torch-glow: #e8842a;        /* Torchlight orange */
+  --torch-dim: rgba(232,132,42,0.15); /* Ambient torch */
+  --ember: #d4722a;             /* Ember particle */
+
+  /* === STATUS COLORS === */
+  --emerald: #3a8a40;           /* Forest green — success */
+  --emerald-bright: #4ebd54;    /* Bright green highlights */
+  --danger: #a83a2a;            /* Blood red */
+  --danger-bright: #d44a38;     /* Brighter danger */
+
+  /* === TIER / RARITY === */
+  --tier-chill: #3a8a40;        /* Forest green */
+  --tier-challenging: #4a7ab0;  /* Steel blue */
+  --tier-epic: #7a4ac0;         /* Royal purple */
+  --tier-legendary: #c89820;    /* Deep gold */
+
+  /* === TEXT === */
+  --text-main: #e8dcc8;         /* Warm parchment white */
+  --text-dim: #8a7e6a;          /* Dusty stone */
+  --text-dark: #5a5248;         /* Very dim stone */
+
+  /* === STONE BORDERS === */
+  --stone-border: #3a3248;      /* Muted purple-stone border */
+  --stone-border-light: #4a4058; /* Lighter stone border */
+
+  /* === TYPOGRAPHY === */
   --font-title: 'Press Start 2P', monospace;
   --font-body: 'VT323', monospace;
+
+  /* LEGACY COMPAT — maps old var names to new palette */
+  --neon-purple: var(--stone-border);
+  --flame-orange: var(--torch-glow);
 }
 
 * {
@@ -44,20 +76,49 @@ body, html {
   font-size: 18px;
 }
 
-/* Background Gradient Glow */
+/* ─── Dungeon Stone Background ─── */
 body::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: 
-    radial-gradient(circle at 15% 25%, rgba(155, 89, 182, 0.2) 0%, transparent 45%),
-    radial-gradient(circle at 85% 75%, rgba(244, 196, 48, 0.12) 0%, transparent 45%),
-    radial-gradient(circle at 50% 50%, rgba(22, 33, 62, 0.5) 0%, transparent 70%);
+    /* Warm torch glow from bottom corners */
+    radial-gradient(ellipse at 10% 90%, rgba(232, 132, 42, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 90%, rgba(232, 132, 42, 0.10) 0%, transparent 50%),
+    /* Faint purple dungeon atmosphere at top */
+    radial-gradient(ellipse at 50% 10%, rgba(90, 60, 130, 0.08) 0%, transparent 60%),
+    /* Center dark vignette */
+    radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,0,0,0.4) 100%);
   z-index: -1;
   pointer-events: none;
 }
 
-/* Top Header Buttons */
+/* Stone texture noise overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.02) 2px,
+      rgba(0,0,0,0.02) 4px
+    );
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* ─── Top Header Buttons ─── */
 .top-header-buttons {
   position: absolute;
   top: 15px;
@@ -68,14 +129,14 @@ body::before {
 }
 
 .header-btn {
-  background: var(--surface);
-  border: 2px solid var(--neon-purple);
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border: 2px solid var(--gold-dark);
   color: var(--text-main);
   width: 40px;
   height: 40px;
   border-radius: 6px;
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(155, 89, 182, 0.3), inset 0 0 5px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(200,168,78,0.1), inset 0 -2px 4px rgba(0,0,0,0.4);
   position: relative;
   display: flex;
   align-items: center;
@@ -85,11 +146,12 @@ body::before {
 
 .header-btn:hover {
   border-color: var(--gold-primary);
-  box-shadow: 0 0 12px rgba(244, 196, 48, 0.4), inset 0 0 5px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 10px rgba(200,168,78,0.3), inset 0 1px 0 rgba(200,168,78,0.15), inset 0 -2px 4px rgba(0,0,0,0.4);
 }
 
 .header-btn:active {
   transform: scale(0.95);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.7);
 }
 
 .mute-btn.muted {
@@ -102,16 +164,16 @@ body::before {
   right: -4px;
   width: 12px;
   height: 12px;
-  background-color: #e74c3c;
-  border: 2px solid var(--surface);
+  background-color: var(--danger-bright);
+  border: 2px solid var(--bg-deep);
   border-radius: 50%;
-  box-shadow: 0 0 8px rgba(231, 76, 60, 0.8);
+  box-shadow: 0 0 6px rgba(212, 74, 56, 0.6);
 }
 .badge.hidden {
   display: none !important;
 }
 
-/* Swipeable Layout */
+/* ─── Swipeable Layout ─── */
 .swipe-container {
   display: flex;
   width: 100%;
@@ -142,15 +204,15 @@ body::before {
 /* Locked Panels */
 .locked-panel {
   justify-content: center;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.5);
 }
 .locked-content {
   text-align: center;
   background: var(--surface);
-  border: 3px solid var(--neon-purple);
+  border: 3px solid var(--stone-border);
   padding: 30px;
   border-radius: 12px;
-  box-shadow: 0 0 20px rgba(155, 89, 182, 0.2), inset 0 0 15px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 0 15px rgba(0,0,0,0.5);
 }
 .locked-content .padlock-icon {
   font-size: 3rem;
@@ -159,7 +221,7 @@ body::before {
 .locked-content h2 {
   font-family: var(--font-title);
   font-size: 1rem;
-  color: var(--metal-iron);
+  color: var(--metal-light);
   margin-bottom: 10px;
 }
 .locked-content .coming-soon {
@@ -167,7 +229,7 @@ body::before {
   font-size: 1.2rem;
 }
 
-/* Swipe Indicators */
+/* ─── Swipe Indicators ─── */
 .swipe-indicators {
   position: absolute;
   bottom: 20px;
@@ -182,17 +244,17 @@ body::before {
 .swipe-indicators .dot {
   width: 10px;
   height: 10px;
-  background: var(--surface);
-  border: 2px solid var(--neon-purple);
+  background: var(--bg-stone);
+  border: 2px solid var(--stone-border);
   border-radius: 50%;
 }
 .swipe-indicators .dot.active {
   background: var(--gold-primary);
   border-color: var(--gold-bright);
-  box-shadow: 0 0 8px var(--gold-primary);
+  box-shadow: 0 0 8px rgba(200,168,78,0.6);
 }
 
-/* Views Handling */
+/* ─── Views Handling ─── */
 .view {
   width: 100%;
   height: 100%;
@@ -216,13 +278,21 @@ body::before {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Medieval Typography & Planks */
+/* ═══════════════════════════════════════════
+   STONE CARVED BANNER PLAQUES
+   ═══════════════════════════════════════════ */
 .banner-plaque {
-  background: linear-gradient(135deg, var(--surface), var(--panel-bg));
+  background: linear-gradient(180deg, #2a2238 0%, #1a1428 40%, #181224 100%);
   border: 3px solid var(--gold-primary);
+  border-top: 4px solid var(--gold-bright);
+  border-bottom: 4px solid var(--gold-dark);
   padding: 15px 25px;
-  border-radius: 8px;
-  box-shadow: 0 0 15px rgba(244, 196, 48, 0.15), inset 0 0 10px rgba(0,0,0,0.5);
+  border-radius: 4px;
+  box-shadow: 
+    0 4px 12px rgba(0,0,0,0.7),
+    0 0 20px rgba(200,168,78,0.08),
+    inset 0 2px 4px rgba(200,168,78,0.08),
+    inset 0 -3px 6px rgba(0,0,0,0.5);
   margin-top: 30px;
   margin-bottom: 40px;
   position: relative;
@@ -231,48 +301,70 @@ body::before {
 .banner-plaque::before, .banner-plaque::after {
   content: '';
   position: absolute;
-  top: 6px; width: 8px; height: 8px;
-  background: var(--metal-iron);
+  top: 6px; width: 10px; height: 10px;
+  background: radial-gradient(circle at 35% 35%, var(--metal-light), var(--metal-iron));
   border-radius: 50%;
-  box-shadow: inset -1px -1px 2px rgba(0,0,0,0.8), 0 0 3px rgba(244, 196, 48, 0.3);
+  box-shadow: inset -1px -1px 2px rgba(0,0,0,0.8), 0 0 3px rgba(200,168,78,0.2);
+  border: 1px solid rgba(0,0,0,0.5);
 }
-.banner-plaque::before { left: 6px; }
-.banner-plaque::after { right: 6px; }
+.banner-plaque::before { left: 8px; }
+.banner-plaque::after { right: 8px; }
 
 .app-title {
   font-family: var(--font-title);
   color: var(--gold-primary);
-  text-shadow: 0 0 10px rgba(244, 196, 48, 0.4), 2px 2px 0px #000;
+  text-shadow: 0 0 12px rgba(200,168,78,0.4), 0 0 30px rgba(200,168,78,0.1), 2px 2px 0px #000, -1px -1px 0px rgba(200,168,78,0.15);
   font-size: 1.2rem;
   text-align: center;
 }
 .small-banner .app-title { font-size: 0.9rem; }
 
-/* Buttons & Interactive */
+/* ═══════════════════════════════════════════
+   STONE BUTTONS & INTERACTIONS
+   ═══════════════════════════════════════════ */
 .stone-button {
-  background: linear-gradient(180deg, var(--panel-bg), var(--surface));
+  background: linear-gradient(180deg, #2a2238 0%, #1e1830 50%, #161224 100%);
   border: 3px solid var(--gold-primary);
+  border-top-color: var(--gold-bright);
+  border-bottom-color: var(--gold-dark);
   color: var(--gold-primary);
   font-family: var(--font-title);
   font-size: 1rem;
   padding: 15px 20px;
   cursor: pointer;
-  text-shadow: 0 0 6px rgba(244, 196, 48, 0.3), 1px 1px 0px #000;
-  box-shadow: 0 0 12px rgba(244, 196, 48, 0.1), inset 0 0 10px rgba(0,0,0,0.3);
-  border-radius: 8px;
-  transition: transform 0.1s, box-shadow 0.2s;
+  text-shadow: 0 0 6px rgba(200,168,78,0.3), 1px 1px 0px #000;
+  box-shadow: 
+    0 3px 8px rgba(0,0,0,0.6),
+    inset 0 1px 2px rgba(200,168,78,0.08),
+    inset 0 -2px 4px rgba(0,0,0,0.4);
+  border-radius: 4px;
+  transition: transform 0.1s, box-shadow 0.2s, border-color 0.2s;
+}
+.stone-button:hover {
+  border-color: var(--gold-bright);
+  box-shadow: 
+    0 3px 12px rgba(200,168,78,0.2),
+    inset 0 1px 2px rgba(200,168,78,0.12),
+    inset 0 -2px 4px rgba(0,0,0,0.4);
 }
 .stone-button:active {
   transform: translateY(2px);
-  box-shadow: 0 0 6px rgba(244, 196, 48, 0.05), inset 0 0 10px rgba(0,0,0,0.5);
+  border-top-color: var(--gold-dark);
+  border-bottom-color: var(--gold-bright);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.7);
 }
 
 .giant-button {
   font-size: 1.4rem;
   padding: 30px 35px;
-  border-radius: 14px;
+  border-radius: 6px;
   color: var(--gold-bright);
   border-width: 4px;
+  box-shadow: 
+    0 5px 15px rgba(0,0,0,0.7),
+    0 0 25px rgba(200,168,78,0.08),
+    inset 0 2px 4px rgba(200,168,78,0.1),
+    inset 0 -3px 6px rgba(0,0,0,0.5);
 }
 
 .main-action-area {
@@ -283,18 +375,33 @@ body::before {
 }
 
 .pulse-glow {
-  animation: warmPulse 2s infinite alternate;
+  animation: warmPulse 2.5s infinite alternate ease-in-out;
 }
 @keyframes warmPulse {
-  from { box-shadow: 0 0 8px rgba(244, 196, 48, 0.15), inset 0 0 10px rgba(0,0,0,0.3); }
-  to { box-shadow: 0 0 30px rgba(244, 196, 48, 0.5), 0 0 60px rgba(244, 196, 48, 0.15), inset 0 0 10px rgba(0,0,0,0.3); }
+  from { 
+    box-shadow: 
+      0 5px 15px rgba(0,0,0,0.7),
+      0 0 15px rgba(200,168,78,0.05),
+      inset 0 2px 4px rgba(200,168,78,0.08),
+      inset 0 -3px 6px rgba(0,0,0,0.5); 
+  }
+  to { 
+    box-shadow: 
+      0 5px 15px rgba(0,0,0,0.7),
+      0 0 40px rgba(200,168,78,0.25),
+      0 0 80px rgba(232,132,42,0.08),
+      inset 0 2px 4px rgba(200,168,78,0.15),
+      inset 0 -3px 6px rgba(0,0,0,0.5); 
+  }
 }
 
-/* ─── Choice Modal (appears after START QUEST) ─── */
+/* ═══════════════════════════════════════════
+   CHOICE MODAL (PATH SELECTION)
+   ═══════════════════════════════════════════ */
 .choice-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(10, 4, 20, 0.85);
+  background: rgba(5, 3, 10, 0.88);
   z-index: 200;
   display: flex;
   align-items: center;
@@ -324,7 +431,7 @@ body::before {
   font-family: var(--font-title);
   color: var(--gold-primary);
   font-size: 0.9rem;
-  text-shadow: 0 0 10px rgba(244, 196, 48, 0.4);
+  text-shadow: 0 0 12px rgba(200,168,78,0.4), 2px 2px 0 #000;
   text-align: center;
 }
 
@@ -334,8 +441,10 @@ body::before {
 }
 
 .choice-card {
-  background: linear-gradient(180deg, var(--panel-bg), var(--surface));
-  border: 3px solid var(--neon-purple);
+  background: linear-gradient(180deg, #2a2238 0%, #1a1428 50%, #141020 100%);
+  border: 3px solid var(--stone-border-light);
+  border-top-color: var(--metal-light);
+  border-bottom-color: rgba(0,0,0,0.6);
   width: 140px;
   height: 160px;
   display: flex;
@@ -344,8 +453,8 @@ body::before {
   justify-content: center;
   gap: 12px;
   cursor: pointer;
-  border-radius: 12px;
-  box-shadow: 0 0 15px rgba(155, 89, 182, 0.2), inset 0 0 12px rgba(0,0,0,0.4);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6), inset 0 0 15px rgba(0,0,0,0.4);
   transition: all 0.2s ease;
 }
 .choice-card:active {
@@ -353,11 +462,11 @@ body::before {
 }
 .choice-card:hover {
   border-color: var(--gold-primary);
-  box-shadow: 0 0 20px rgba(244, 196, 48, 0.3), inset 0 0 12px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 20px rgba(200,168,78,0.2), inset 0 0 15px rgba(200,168,78,0.05);
 }
 .choice-card .slot-icon {
   font-size: 2.8rem;
-  filter: drop-shadow(0 0 6px rgba(244, 196, 48, 0.3));
+  filter: drop-shadow(0 0 8px rgba(200,168,78,0.3));
 }
 .choice-card .slot-label {
   font-family: var(--font-title);
@@ -365,28 +474,32 @@ body::before {
   color: var(--text-main);
   text-align: center;
   line-height: 1.3;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .choice-close-btn {
-  background: none;
-  border: 2px solid var(--text-dim);
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border: 2px solid var(--stone-border);
   color: var(--text-dim);
   font-family: var(--font-title);
   font-size: 0.7rem;
   padding: 8px 20px;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
 }
 .choice-close-btn:hover {
   border-color: var(--gold-primary);
   color: var(--gold-primary);
 }
 
-/* Inventory Slots */
+/* ═══════════════════════════════════════════
+   INVENTORY SLOTS (Wizard Options)
+   ═══════════════════════════════════════════ */
 .inventory-slot {
-  background: var(--bg-deep);
-  border: 3px solid var(--neon-purple);
+  background: linear-gradient(180deg, #1a1428, #121020);
+  border: 3px solid var(--stone-border);
   width: 120px;
   height: 120px;
   display: flex;
@@ -395,30 +508,37 @@ body::before {
   justify-content: center;
   gap: 10px;
   cursor: pointer;
-  border-radius: 8px;
-  box-shadow: inset 0 0 15px rgba(0,0,0,0.6), 0 0 8px rgba(155, 89, 182, 0.15);
+  border-radius: 6px;
+  box-shadow: inset 0 3px 10px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(200,168,78,0.05), 0 2px 6px rgba(0,0,0,0.4);
   transition: all 0.2s;
 }
 .inventory-slot.selected {
   border-color: var(--gold-primary);
-  background: var(--panel-bg);
-  box-shadow: inset 0 0 15px rgba(244, 196, 48, 0.1), 0 0 15px rgba(244, 196, 48, 0.3);
+  border-width: 3px;
+  background: linear-gradient(180deg, #2a2238, #1e1830);
+  box-shadow: 
+    inset 0 0 12px rgba(200,168,78,0.1),
+    0 0 15px rgba(200,168,78,0.2),
+    0 2px 8px rgba(0,0,0,0.4);
 }
 .inventory-slot:active {
   transform: scale(0.95);
 }
 .slot-icon {
   font-size: 2.5rem;
-  filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.8));
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.9));
 }
 .slot-label {
   font-family: var(--font-body);
   font-size: 1.1rem;
   color: var(--text-main);
   text-transform: uppercase;
+  text-shadow: 1px 1px 0 #000;
 }
 
-/* Wizard */
+/* ═══════════════════════════════════════════
+   QUEST WIZARD
+   ═══════════════════════════════════════════ */
 .back-btn {
   align-self: flex-start;
   background: none;
@@ -430,6 +550,7 @@ body::before {
   margin-bottom: 20px;
   cursor: pointer;
   transition: color 0.2s;
+  text-shadow: 1px 1px 0 #000;
 }
 .back-btn:hover {
   color: var(--gold-primary);
@@ -437,35 +558,41 @@ body::before {
 
 .progress-frame {
   width: 100%;
-  background: var(--surface);
-  border: 2px solid var(--neon-purple);
-  border-radius: 6px;
+  background: linear-gradient(180deg, #1a1428, #121020);
+  border: 2px solid var(--stone-border);
+  border-top-color: var(--metal-light);
+  border-bottom-color: rgba(0,0,0,0.5);
+  border-radius: 4px;
   padding: 5px;
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 20px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
 }
 .xp-bar-container {
   flex-grow: 1;
   height: 15px;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.6);
   border: 2px solid #000;
-  border-radius: 3px;
+  border-top-color: rgba(0,0,0,0.8);
+  border-bottom-color: rgba(50,40,30,0.5);
+  border-radius: 2px;
   overflow: hidden;
 }
 .xp-bar-fill {
   height: 100%;
   width: 16.6%;
-  background: linear-gradient(90deg, var(--emerald), #58d68d);
-  box-shadow: inset 0 2px 2px rgba(255,255,255,0.2), 0 0 8px rgba(46, 204, 113, 0.4);
+  background: linear-gradient(90deg, var(--emerald), var(--emerald-bright));
+  box-shadow: inset 0 2px 2px rgba(255,255,255,0.15), 0 0 6px rgba(58,138,64,0.4);
   transition: width 0.3s ease;
-  border-radius: 2px;
+  border-radius: 1px;
 }
 .progress-text {
   font-family: var(--font-title);
   font-size: 0.7rem;
   color: var(--gold-bright);
+  text-shadow: 1px 1px 0 #000;
 }
 
 .wizard-header { margin-bottom: 20px; }
@@ -474,11 +601,14 @@ body::before {
   color: var(--gold-primary);
   font-size: 0.9rem;
   text-align: center;
-  background: var(--surface);
+  background: linear-gradient(180deg, #2a2238, #1a1428);
   padding: 10px 15px;
-  border: 2px solid var(--neon-purple);
-  border-radius: 6px;
-  box-shadow: 0 0 8px rgba(155, 89, 182, 0.15);
+  border: 2px solid var(--stone-border);
+  border-top-color: var(--metal-light);
+  border-bottom-color: rgba(0,0,0,0.4);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(200,168,78,0.05), 0 2px 6px rgba(0,0,0,0.4);
+  text-shadow: 0 0 8px rgba(200,168,78,0.3), 2px 2px 0 #000;
 }
 
 .inventory-grid {
@@ -499,14 +629,16 @@ body::before {
   justify-content: flex-end;
 }
 
-/* ─── Chest Reveal Animation ─── */
+/* ═══════════════════════════════════════════
+   CHEST REVEAL ANIMATION
+   ═══════════════════════════════════════════ */
 .pulsing-text {
   font-family: var(--font-title);
   color: var(--gold-bright);
   font-size: 0.9rem;
   text-align: center;
   margin-top: 60px;
-  text-shadow: 0 0 15px rgba(244, 196, 48, 0.5);
+  text-shadow: 0 0 15px rgba(200,168,78,0.5), 0 0 40px rgba(232,132,42,0.2);
   animation: pulseOpacity 1s infinite alternate;
 }
 @keyframes pulseOpacity {
@@ -530,7 +662,6 @@ body::before {
   height: 70px;
   z-index: 10;
 }
-/* Chest body */
 .chest-body {
   position: absolute;
   bottom: 0;
@@ -541,7 +672,6 @@ body::before {
   border-radius: 4px;
   box-shadow: inset 0 -4px 8px rgba(0,0,0,0.4), inset 0 4px 4px rgba(255,200,100,0.1);
 }
-/* Wood slats on body */
 .chest-body::before {
   content: '';
   position: absolute;
@@ -550,7 +680,6 @@ body::before {
   height: 2px;
   background: #4a2510;
 }
-/* Chest lid */
 .chest-lid {
   position: absolute;
   top: 0;
@@ -564,7 +693,6 @@ body::before {
   transition: transform 0.4s ease;
   box-shadow: inset 0 4px 6px rgba(255,200,100,0.15);
 }
-/* Metal band on lid */
 .chest-lid::after {
   content: '';
   position: absolute;
@@ -574,7 +702,6 @@ body::before {
   background: linear-gradient(90deg, #b8860b, #daa520, #b8860b);
   border-radius: 1px;
 }
-/* Lock / clasp */
 .chest-lock {
   position: absolute;
   bottom: 30px;
@@ -586,7 +713,7 @@ body::before {
   border: 2px solid #8B6914;
   border-radius: 3px;
   z-index: 15;
-  box-shadow: 0 0 6px rgba(218, 165, 32, 0.4);
+  box-shadow: 0 0 8px rgba(218, 165, 32, 0.5);
 }
 .chest-lock::after {
   content: '';
@@ -600,11 +727,9 @@ body::before {
   border-radius: 50%;
 }
 
-/* Chest opened state */
 .chest-opened .chest-lid {
   transform: rotateX(-110deg);
 }
-/* Glow from inside when opened */
 .chest-opened .chest-body::after {
   content: '';
   position: absolute;
@@ -612,7 +737,7 @@ body::before {
   left: 10%;
   width: 80%;
   height: 20px;
-  background: radial-gradient(ellipse, rgba(244, 196, 48, 0.8) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(200,168,78,0.8) 0%, rgba(232,132,42,0.3) 50%, transparent 70%);
   animation: innerGlow 0.5s ease forwards;
 }
 @keyframes innerGlow {
@@ -635,7 +760,7 @@ body::before {
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   width: 0; height: 0;
-  background: radial-gradient(circle, rgba(244, 196, 48, 0.6) 0%, rgba(155, 89, 182, 0.2) 50%, transparent 70%);
+  background: radial-gradient(circle, rgba(200,168,78,0.6) 0%, rgba(232,132,42,0.2) 50%, transparent 70%);
   border-radius: 50%;
   z-index: 5;
   transition: all 0.4s ease;
@@ -647,7 +772,9 @@ body::before {
   opacity: 1;
 }
 
-/* ─── Quest Cards ─── */
+/* ═══════════════════════════════════════════
+   QUEST CARDS — Parchment & Rarity Frames
+   ═══════════════════════════════════════════ */
 .quest-list {
   width: 100%;
   display: flex;
@@ -657,14 +784,14 @@ body::before {
   padding-bottom: 20px;
 }
 .quest-card {
-  background: linear-gradient(135deg, var(--surface), var(--panel-bg));
-  border: 2px solid var(--neon-purple);
-  border-left-width: 6px;
-  border-radius: 8px;
+  background: linear-gradient(135deg, #1a1428, #221a30);
+  border: 2px solid var(--stone-border);
+  border-left-width: 7px;
+  border-radius: 6px;
   padding: 12px;
   display: flex;
   gap: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(200,168,78,0.04);
   position: relative;
   opacity: 0;
   transform: translateY(20px);
@@ -674,8 +801,8 @@ body::before {
 }
 .quest-card.selected-card {
   border-color: var(--gold-primary) !important;
-  background: linear-gradient(135deg, var(--panel-bg), #2a1858) !important;
-  box-shadow: 0 0 15px rgba(244, 196, 48, 0.2);
+  background: linear-gradient(135deg, #2a2238, #1e1830) !important;
+  box-shadow: 0 0 15px rgba(200,168,78,0.15), inset 0 0 10px rgba(200,168,78,0.05);
 }
 @keyframes cardDrop {
   to { opacity: 1; transform: translateY(0); }
@@ -686,17 +813,18 @@ body::before {
 .quest-card[data-rarity="epic"] { border-left-color: var(--tier-epic); }
 .quest-card[data-rarity="legendary"] { 
   border-left-color: var(--tier-legendary); 
-  box-shadow: 0 0 12px rgba(230, 126, 34, 0.3);
+  box-shadow: 0 0 12px rgba(200,152,32,0.2), inset 0 0 8px rgba(200,152,32,0.05);
 }
 
 .quest-icon {
   font-size: 2rem;
-  background: var(--bg-deep);
-  border: 2px solid var(--neon-purple);
+  background: linear-gradient(180deg, #121020, #0d0b14);
+  border: 2px solid var(--stone-border);
   width: 50px; height: 50px;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 8px;
+  border-radius: 6px;
   flex-shrink: 0;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
 }
 
 .quest-details {
@@ -710,6 +838,7 @@ body::before {
   font-size: 0.7rem;
   color: var(--gold-bright);
   line-height: 1.3;
+  text-shadow: 1px 1px 0 #000;
 }
 .quest-desc {
   color: var(--text-main);
@@ -734,13 +863,19 @@ body::before {
   justify-content: center;
 }
 .success-btn {
-  background: linear-gradient(180deg, var(--emerald), #229954);
-  border-color: #1a7a3a;
+  background: linear-gradient(180deg, var(--emerald), #2a6e30);
+  border: 3px solid #1a5a20;
+  border-top-color: var(--emerald-bright);
+  border-bottom-color: #1a4a1a;
   color: #fff;
   width: 100%;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.1);
 }
 
-/* Filter Tabs */
+/* ═══════════════════════════════════════════
+   FILTER TABS
+   ═══════════════════════════════════════════ */
 .filter-tabs {
   display: flex;
   gap: 5px;
@@ -752,8 +887,8 @@ body::before {
 .filter-tabs::-webkit-scrollbar { display: none; }
 
 .tab-btn {
-  background: var(--surface);
-  border: 2px solid var(--neon-purple);
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border: 2px solid var(--stone-border);
   color: var(--text-dim);
   font-family: var(--font-body);
   font-size: 1.1rem;
@@ -762,15 +897,19 @@ body::before {
   white-space: nowrap;
   border-radius: 4px;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  text-shadow: 1px 1px 0 #000;
 }
 .tab-btn.active {
-  background: var(--panel-bg);
+  background: linear-gradient(180deg, #2a2238, #1e1830);
   color: var(--gold-bright);
   border-color: var(--gold-primary);
-  box-shadow: 0 0 8px rgba(244, 196, 48, 0.2);
+  box-shadow: 0 0 8px rgba(200,168,78,0.15), inset 0 1px 2px rgba(200,168,78,0.05);
 }
 
-/* Particles */
+/* ═══════════════════════════════════════════
+   WARM EMBER PARTICLES
+   ═══════════════════════════════════════════ */
 #particles-container {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -780,29 +919,38 @@ body::before {
 }
 .particle {
   position: absolute;
-  width: 3px; height: 3px;
-  background: var(--gold-bright);
+  width: 4px; height: 4px;
+  background: var(--torch-glow);
   border-radius: 50%;
-  opacity: 0.4;
+  opacity: 0.5;
   bottom: -10px;
   animation: floatUp linear forwards;
+  box-shadow: 0 0 4px rgba(232,132,42,0.4);
 }
 @keyframes floatUp {
-  100% { transform: translateY(-100vh) translateX(20px); opacity: 0; }
+  0% { transform: translateY(0) translateX(0); opacity: 0.5; }
+  25% { transform: translateY(-25vh) translateX(8px); opacity: 0.6; }
+  50% { transform: translateY(-50vh) translateX(-5px); opacity: 0.4; }
+  75% { transform: translateY(-75vh) translateX(10px); opacity: 0.2; }
+  100% { transform: translateY(-100vh) translateX(3px); opacity: 0; }
 }
 
-/* ─── Profile Panel & Customization ─── */
+/* ═══════════════════════════════════════════
+   PROFILE PANEL & CHARACTER CARD
+   ═══════════════════════════════════════════ */
 .profile-card {
-  background: linear-gradient(135deg, var(--surface), var(--panel-bg));
+  background: linear-gradient(180deg, #221a30, #1a1428);
   border: 3px solid var(--gold-primary);
-  border-radius: 8px;
+  border-top-color: var(--gold-bright);
+  border-bottom-color: var(--gold-dark);
+  border-radius: 6px;
   width: 100%;
   padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(200,168,78,0.06);
   margin-bottom: 25px;
 }
 
@@ -816,14 +964,14 @@ body::before {
 .avatar-frame {
   width: 80px;
   height: 80px;
-  background: var(--bg-deep);
+  background: linear-gradient(180deg, #121020, #0d0b14);
   border: 4px double var(--gold-primary);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.8), 0 0 8px rgba(200,168,78,0.1);
 }
 
 .avatar-img {
@@ -845,8 +993,8 @@ body::before {
 }
 
 .retro-input {
-  background: #110822;
-  border: 2px solid var(--neon-purple);
+  background: linear-gradient(180deg, #0d0b14, #121020);
+  border: 2px solid var(--stone-border);
   color: var(--gold-bright);
   font-family: var(--font-title);
   font-size: 0.8rem;
@@ -856,19 +1004,21 @@ body::before {
   width: 90%;
   outline: none;
   text-transform: uppercase;
-  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.8);
-  transition: border-color 0.2s;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7);
+  transition: border-color 0.2s, box-shadow 0.2s;
   user-select: text;
 }
 
 .retro-input:focus {
   border-color: var(--gold-primary);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7), 0 0 8px rgba(200,168,78,0.15);
 }
 
 .edit-hint {
   font-size: 0.8rem;
   color: var(--text-dim);
   margin-top: 4px;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .stats-container {
@@ -884,6 +1034,7 @@ body::before {
   font-family: var(--font-title);
   font-size: 0.8rem;
   color: var(--text-main);
+  text-shadow: 1px 1px 0 #000;
 }
 
 .xp-text-row {
@@ -896,7 +1047,7 @@ body::before {
   color: var(--text-dim);
 }
 
-/* Presets Grid inside Avatar Modal */
+/* Avatar Presets Grid */
 .avatar-presets {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -906,8 +1057,8 @@ body::before {
 }
 
 .avatar-preset-btn {
-  background: var(--surface);
-  border: 2px solid var(--neon-purple);
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border: 2px solid var(--stone-border);
   font-size: 2rem;
   padding: 10px 0;
   border-radius: 6px;
@@ -916,12 +1067,13 @@ body::before {
   display: flex;
   justify-content: center;
   align-items: center;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .avatar-preset-btn:hover, .avatar-preset-btn.selected {
   border-color: var(--gold-primary);
-  background: var(--panel-bg);
-  box-shadow: 0 0 8px var(--gold-primary);
+  background: linear-gradient(180deg, #2a2238, #1e1830);
+  box-shadow: 0 0 10px rgba(200,168,78,0.2), inset 0 0 6px rgba(200,168,78,0.08);
 }
 
 .custom-avatar-upload {
@@ -941,7 +1093,9 @@ body::before {
   display: none !important;
 }
 
-/* Quest Ledger (Scroll History) */
+/* ═══════════════════════════════════════════
+   QUEST LEDGER (Scroll History)
+   ═══════════════════════════════════════════ */
 .ledger-container {
   width: 100%;
   display: flex;
@@ -953,9 +1107,10 @@ body::before {
   font-family: var(--font-title);
   font-size: 0.75rem;
   color: var(--gold-bright);
-  border-bottom: 2px solid var(--neon-purple);
+  border-bottom: 2px solid var(--gold-dark);
   padding-bottom: 5px;
   margin-top: 10px;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .ledger-list {
@@ -975,8 +1130,9 @@ body::before {
 }
 
 .ledger-entry {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--neon-purple);
+  background: linear-gradient(135deg, #1a1428, #161224);
+  border: 1px solid var(--stone-border);
+  border-left: 3px solid var(--gold-dark);
   border-radius: 4px;
   padding: 8px 12px;
   display: flex;
@@ -984,6 +1140,7 @@ body::before {
   align-items: center;
   font-size: 1rem;
   animation: cardDrop 0.3s forwards;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .ledger-entry-title {
@@ -995,12 +1152,15 @@ body::before {
 }
 
 .ledger-entry-xp {
-  color: var(--emerald);
+  color: var(--emerald-bright);
   font-family: var(--font-title);
   font-size: 0.6rem;
+  text-shadow: 0 0 4px rgba(78,189,84,0.3);
 }
 
-/* ─── Active/Pending Quests on Home Menu ─── */
+/* ═══════════════════════════════════════════
+   ACTIVE QUESTS (Home Menu)
+   ═══════════════════════════════════════════ */
 .active-quests-container {
   width: 100%;
   margin-top: 40px;
@@ -1016,6 +1176,7 @@ body::before {
   text-align: center;
   position: relative;
   margin-bottom: 10px;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .active-quests-title::before, .active-quests-title::after {
@@ -1024,7 +1185,7 @@ body::before {
   top: 50%;
   width: 25%;
   height: 2px;
-  background: var(--neon-purple);
+  background: linear-gradient(90deg, transparent, var(--gold-dark), transparent);
 }
 
 .active-quests-title::before { left: 0; }
@@ -1042,21 +1203,21 @@ body::before {
   text-align: center;
   font-size: 1.1rem;
   padding: 20px;
-  background: rgba(0,0,0,0.25);
-  border: 2px dashed rgba(155, 89, 182, 0.3);
-  border-radius: 8px;
+  background: linear-gradient(135deg, #1a1428, #121020);
+  border: 2px dashed var(--stone-border);
+  border-radius: 6px;
 }
 
 .active-quest-card {
-  background: linear-gradient(135deg, #2c1a35, var(--panel-bg));
-  border: 2px solid var(--neon-purple);
-  border-radius: 8px;
+  background: linear-gradient(135deg, #221a30, #1a1428);
+  border: 2px solid var(--stone-border);
+  border-radius: 6px;
   padding: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(200,168,78,0.04);
   animation: cardDrop 0.3s forwards;
 }
 
@@ -1086,11 +1247,13 @@ body::before {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .active-quest-reward-text {
   font-size: 0.95rem;
-  color: var(--emerald);
+  color: var(--emerald-bright);
+  text-shadow: 0 0 4px rgba(78,189,84,0.2);
 }
 
 .active-quest-actions {
@@ -1110,6 +1273,7 @@ body::before {
   justify-content: center;
   font-size: 1rem;
   transition: transform 0.1s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
 }
 
 .active-action-btn:active {
@@ -1117,31 +1281,32 @@ body::before {
 }
 
 .btn-complete-active {
-  background: var(--emerald);
-  border-color: #229954;
+  background: linear-gradient(180deg, var(--emerald), #2a6e30);
+  border-color: #1a5a20;
   color: white;
 }
 
 .btn-abandon-active {
-  background: #e74c3c;
-  border-color: #c0392b;
+  background: linear-gradient(180deg, var(--danger-bright), var(--danger));
+  border-color: #7a2a1a;
   color: white;
 }
 
-/* ─── Friend Request Banner ─── */
-/* ─── Friend Request Banner ─── */
+/* ═══════════════════════════════════════════
+   FRIEND REQUEST BANNER
+   ═══════════════════════════════════════════ */
 .request-banner {
-  background: linear-gradient(90deg, #c0392b, #e74c3c, #c0392b);
+  background: linear-gradient(90deg, var(--danger), var(--danger-bright), var(--danger));
   border: 3px solid var(--gold-primary);
   width: 90%;
   max-width: 400px;
   padding: 15px;
-  border-radius: 6px;
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 15px;
-  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+  box-shadow: 0 4px 15px rgba(168, 58, 42, 0.4), 0 0 20px rgba(200,168,78,0.1);
   animation: slideDown 0.3s ease-out forwards;
   position: fixed;
   top: 20px;
@@ -1173,7 +1338,7 @@ body::before {
 .banner-progress-bar {
   width: 100%;
   height: 6px;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -1191,22 +1356,25 @@ body::before {
   color: #fff;
 }
 .accept-btn {
-  background: linear-gradient(180deg, #2ecc71, #27ae60);
-  border-color: #2ecc71;
+  background: linear-gradient(180deg, var(--emerald), #2a6e30);
+  border-color: var(--emerald);
 }
 .decline-btn {
-  background: linear-gradient(180deg, #e74c3c, #c0392b);
-  border-color: #e74c3c;
+  background: linear-gradient(180deg, var(--danger-bright), var(--danger));
+  border-color: var(--danger);
 }
 
-/* ─── Friends & Notifications Modal ─── */
+/* ═══════════════════════════════════════════
+   FRIENDS & NOTIFICATIONS MODAL
+   ═══════════════════════════════════════════ */
 .friends-modal-content, .notifications-modal-content {
   width: 90%;
   max-width: 400px;
   padding: 20px;
-  background: var(--bg-deep);
-  border: 4px solid var(--neon-purple);
-  border-radius: 12px;
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border: 4px double var(--gold-primary);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(200,168,78,0.08);
 }
 
 .friends-top-bar {
@@ -1217,19 +1385,21 @@ body::before {
 }
 
 .friend-code-display {
-  background: var(--surface);
+  background: linear-gradient(180deg, #1a1428, #121020);
   border: 2px solid var(--gold-primary);
   padding: 10px;
-  border-radius: 6px;
+  border-radius: 4px;
   text-align: center;
   font-family: var(--font-body);
   font-size: 1.2rem;
   color: var(--text-dim);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
 }
 .friend-code-display strong {
   color: var(--gold-bright);
   font-size: 1.4rem;
   margin-left: 10px;
+  text-shadow: 0 0 6px rgba(200,168,78,0.3);
 }
 
 .add-friend-section {
@@ -1243,13 +1413,14 @@ body::before {
 
 .friends-list-container {
   width: 100%;
-  background: var(--surface);
-  border: 2px solid var(--metal-iron);
-  border-radius: 6px;
+  background: linear-gradient(180deg, #121020, #0d0b14);
+  border: 2px solid var(--stone-border);
+  border-radius: 4px;
   height: 200px;
   overflow-y: auto;
   padding: 10px;
   margin-top: 15px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
 }
 
 .friends-list {
@@ -1262,10 +1433,11 @@ body::before {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--panel-bg);
+  background: linear-gradient(135deg, #1a1428, #221a30);
   padding: 8px;
   border-radius: 6px;
-  border: 1px solid var(--neon-purple);
+  border: 1px solid var(--stone-border);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 .friend-avatar {
   font-size: 1.5rem;
@@ -1274,9 +1446,10 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
-  border: 2px solid var(--gold-primary);
+  background: linear-gradient(180deg, #121020, #0d0b14);
+  border: 2px solid var(--gold-dark);
   border-radius: 4px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
 }
 .friend-info {
   display: flex;
@@ -1302,22 +1475,24 @@ body::before {
 }
 
 .debug-btn {
-  background: linear-gradient(180deg, #34495e, #2c3e50);
-  border-color: #7f8c8d;
-  color: #bdc3c7;
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border-color: var(--stone-border);
+  color: var(--text-dim);
   font-size: 0.7rem;
 }
 
-/* ─── Quest Codex Modal & Xbox Ring Styles ─── */
+/* ═══════════════════════════════════════════
+   QUEST CODEX MODAL & XBOX RING
+   ═══════════════════════════════════════════ */
 .quest-codex-content {
   width: 90%;
   max-width: 440px;
   padding: 0;
-  background: var(--bg-deep);
+  background: linear-gradient(180deg, var(--surface), var(--bg-deep));
   border: 4px double var(--gold-primary);
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(244, 196, 48, 0.15);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(200,168,78,0.1);
 }
 
 .codex-rarity-banner {
@@ -1326,9 +1501,9 @@ body::before {
   display: flex;
   align-items: center;
   gap: 15px;
-  border-bottom: 3px solid var(--gold-primary);
+  border-bottom: 3px solid var(--gold-dark);
   position: relative;
-  background: linear-gradient(180deg, var(--surface), var(--panel-bg));
+  background: linear-gradient(180deg, #221a30, #1a1428);
 }
 
 .codex-rarity-banner::before {
@@ -1340,16 +1515,16 @@ body::before {
 }
 
 .codex-rarity-banner[data-rarity="chill"] {
-  background: linear-gradient(180deg, rgba(46, 204, 113, 0.2), rgba(46, 204, 113, 0.05)), var(--surface);
+  background: linear-gradient(180deg, rgba(58, 138, 64, 0.15), rgba(58, 138, 64, 0.03)), linear-gradient(180deg, #221a30, #1a1428);
 }
 .codex-rarity-banner[data-rarity="challenging"] {
-  background: linear-gradient(180deg, rgba(52, 152, 219, 0.2), rgba(52, 152, 219, 0.05)), var(--surface);
+  background: linear-gradient(180deg, rgba(74, 122, 176, 0.15), rgba(74, 122, 176, 0.03)), linear-gradient(180deg, #221a30, #1a1428);
 }
 .codex-rarity-banner[data-rarity="epic"] {
-  background: linear-gradient(180deg, rgba(155, 89, 182, 0.25), rgba(155, 89, 182, 0.05)), var(--surface);
+  background: linear-gradient(180deg, rgba(122, 74, 192, 0.2), rgba(122, 74, 192, 0.03)), linear-gradient(180deg, #221a30, #1a1428);
 }
 .codex-rarity-banner[data-rarity="legendary"] {
-  background: linear-gradient(180deg, rgba(230, 126, 34, 0.25), rgba(230, 126, 34, 0.05)), var(--surface);
+  background: linear-gradient(180deg, rgba(200, 152, 32, 0.2), rgba(200, 152, 32, 0.03)), linear-gradient(180deg, #221a30, #1a1428);
   border-bottom-color: var(--tier-legendary);
 }
 
@@ -1357,13 +1532,14 @@ body::before {
   font-size: 2.2rem;
   width: 55px;
   height: 55px;
-  background: rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, #121020, #0d0b14);
   border: 2px solid var(--gold-primary);
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.6), 0 0 6px rgba(200,168,78,0.1);
 }
 
 .codex-quest-title {
@@ -1388,20 +1564,22 @@ body::before {
   font-size: 1.25rem;
   line-height: 1.3;
   color: var(--text-main);
-  background: rgba(0,0,0,0.2);
-  border: 1px solid var(--neon-purple);
+  background: linear-gradient(135deg, #121020, #0d0b14);
+  border: 1px solid var(--stone-border);
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 4px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
 }
 
 .codex-stats {
-  background: rgba(0,0,0,0.3);
-  border: 2px solid var(--metal-iron);
-  border-radius: 6px;
+  background: linear-gradient(180deg, #121020, #0d0b14);
+  border: 2px solid var(--stone-border);
+  border-radius: 4px;
   padding: 10px 15px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
 }
 
 .codex-stat-row {
@@ -1412,8 +1590,8 @@ body::before {
 }
 
 .coop-text {
-  color: var(--emerald);
-  text-shadow: 0 0 5px rgba(46,204,113,0.3);
+  color: var(--emerald-bright);
+  text-shadow: 0 0 5px rgba(78,189,84,0.3);
 }
 
 /* Xbox 360 Connect Ring */
@@ -1421,10 +1599,11 @@ body::before {
   display: flex;
   align-items: center;
   gap: 20px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1.5px solid var(--neon-purple);
+  background: linear-gradient(135deg, #121020, #0d0b14);
+  border: 1.5px solid var(--stone-border);
   padding: 15px;
-  border-radius: 8px;
+  border-radius: 6px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
 }
 
 .xbox-ring {
@@ -1441,19 +1620,18 @@ body::before {
 }
 
 .quadrant {
-  fill: #1e1335;
-  stroke: #452178;
+  fill: #1a1428;
+  stroke: var(--stone-border);
   stroke-width: 2px;
   transition: fill 0.3s ease, stroke 0.3s ease, filter 0.3s ease;
 }
 
 .quadrant.active {
-  fill: #2ecc71;
-  stroke: #a2f0c1;
-  filter: drop-shadow(0 0 4px #2ecc71);
+  fill: var(--emerald);
+  stroke: var(--emerald-bright);
+  filter: drop-shadow(0 0 4px rgba(58,138,64,0.6));
 }
 
-/* Spinning complete animation */
 .xbox-ring.lobby-full .ring-svg {
   animation: ringSpin 0.8s cubic-bezier(0.4, 0.1, 0.2, 1) forwards;
 }
@@ -1468,8 +1646,8 @@ body::before {
 }
 
 @keyframes ringPulse {
-  0% { filter: drop-shadow(0 0 3px #2ecc71); }
-  100% { filter: drop-shadow(0 0 12px #2ecc71); }
+  0% { filter: drop-shadow(0 0 3px rgba(58,138,64,0.5)); }
+  100% { filter: drop-shadow(0 0 12px rgba(58,138,64,0.8)); }
 }
 
 .ring-center {
@@ -1478,19 +1656,20 @@ body::before {
   transform: translate(-50%, -50%);
   width: 32px;
   height: 32px;
-  background: #0d061c;
-  border: 2px solid var(--metal-iron);
+  background: var(--bg-deep);
+  border: 2px solid var(--stone-border);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 5px rgba(0,0,0,0.8);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
 }
 
 #ring-party-size {
   font-family: var(--font-title);
   font-size: 0.55rem;
   color: var(--gold-bright);
+  text-shadow: 1px 1px 0 #000;
 }
 
 .xbox-party-list {
@@ -1514,8 +1693,8 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
-  border: 1px solid var(--gold-primary);
+  background: var(--bg-deep);
+  border: 1px solid var(--gold-dark);
   border-radius: 3px;
 }
 
@@ -1529,7 +1708,7 @@ body::before {
 
 .party-status {
   font-size: 0.8rem;
-  color: var(--emerald);
+  color: var(--emerald-bright);
   margin-left: auto;
 }
 
@@ -1579,88 +1758,158 @@ body::before {
 
 .friend-item.clickable:hover {
   border-color: var(--gold-primary);
-  background-color: rgba(244, 196, 48, 0.05);
+  background: linear-gradient(135deg, #2a2238, #221a30);
 }
 
+/* ═══════════════════════════════════════════
+   AUTH MODAL
+   ═══════════════════════════════════════════ */
 .auth-modal-content {
-  background: var(--bg-deep);
-  border: 4px solid var(--gold-primary);
-  border-radius: 12px;
+  background: linear-gradient(180deg, var(--surface), var(--bg-deep));
+  border: 4px double var(--gold-primary);
+  border-radius: 8px;
   padding: 30px 25px;
   width: 90%;
   max-width: 380px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 25px rgba(244,196,48,0.2);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 25px rgba(200,168,78,0.1);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-/* --- Guild Panel & Chat Styles --- */
+.empty-msg {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════
+   TAVERN CHAT SYSTEM
+   ═══════════════════════════════════════════ */
 .chat-msg {
   display: flex;
   flex-direction: column;
-  padding: 8px 10px;
-  background: var(--surface);
-  border: 1px solid var(--metal-iron);
-  border-radius: 4px;
-  margin-bottom: 6px;
-  max-width: 90%;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #1a1428, #161224);
+  border: 2px solid var(--stone-border);
+  border-radius: 10px 10px 10px 2px;
+  margin-bottom: 8px;
+  max-width: 80%;
   width: fit-content;
+  align-self: flex-start;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+  position: relative;
 }
 
 .chat-msg.self {
   align-self: flex-end;
-  background: var(--panel-bg);
-  border-color: var(--neon-purple);
+  background: linear-gradient(135deg, #2a2038, #221830);
+  border-color: var(--gold-dark);
+  border-radius: 10px 10px 2px 10px;
+  box-shadow: 0 3px 6px rgba(200,168,78,0.08);
 }
 
 .chat-msg.system {
   align-self: center;
-  background: rgba(244, 196, 48, 0.1);
-  border: 1px dashed var(--gold-primary);
+  background: linear-gradient(135deg, rgba(200,168,78,0.06), rgba(200,168,78,0.02));
+  border: 1px dashed var(--gold-dark);
+  border-radius: 4px;
   color: var(--gold-bright);
-  font-size: 0.85rem;
-  max-width: 100%;
-  width: 100%;
+  font-size: 0.8rem;
+  max-width: 95%;
+  width: 95%;
   text-align: center;
-  padding: 6px;
+  padding: 8px 12px;
+  box-shadow: none;
+  font-family: var(--font-title);
+  line-height: 1.3;
 }
 
 .chat-msg-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
+  gap: 8px;
+  font-size: 0.7rem;
   color: var(--text-dim);
-  margin-bottom: 3px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
 }
 
 .chat-msg-sender {
   color: var(--gold-bright);
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.chat-msg.self .chat-msg-sender {
+  color: var(--gold-primary);
+}
+
+.chat-msg-role-badge {
+  font-size: 0.55rem;
+  font-family: var(--font-title);
+  padding: 2px 5px;
+  border-radius: 3px;
   font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.chat-msg-role-badge.leader {
+  background: var(--gold-primary);
+  color: #1a0f20;
+  box-shadow: 0 0 5px rgba(200,168,78,0.4);
+}
+
+.chat-msg-role-badge.coleader {
+  background: var(--tier-challenging);
+  color: #fff;
+  box-shadow: 0 0 5px rgba(74,122,176,0.4);
+}
+
+.chat-msg-role-badge.member {
+  background: var(--stone-border);
+  color: var(--text-main);
 }
 
 .chat-msg-time {
-  font-size: 0.65rem;
-  opacity: 0.7;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.chat-msg-avatar-icon {
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-msg-mini-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--stone-border);
 }
 
 .chat-msg-text {
   font-size: 0.95rem;
   color: var(--text-main);
   word-break: break-word;
+  line-height: 1.3;
 }
 
+/* Chat Quest Card */
 .chat-quest-card {
-  background: rgba(0, 0, 0, 0.5);
-  border: 2px solid var(--gold-primary);
-  border-radius: 6px;
+  background: linear-gradient(135deg, #121020, #0d0b14);
+  border: 2px solid var(--gold-dark);
+  border-radius: 4px;
   padding: 10px;
   margin-top: 5px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 240px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
 }
 
 .chat-quest-header {
@@ -1680,6 +1929,7 @@ body::before {
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .chat-quest-meta {
@@ -1696,20 +1946,22 @@ body::before {
   font-family: var(--font-body);
 }
 
-/* Leaderboard enhancements in Guild view */
+/* ═══════════════════════════════════════════
+   LEADERBOARD (Tavern)
+   ═══════════════════════════════════════════ */
 .leaderboard-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(244, 196, 48, 0.15);
+  border-bottom: 1px solid rgba(200,168,78,0.1);
   font-size: 0.95rem;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .leaderboard-row:hover {
-  background: rgba(244, 196, 48, 0.05);
+  background: rgba(200,168,78,0.04);
 }
 
 .leaderboard-row:last-child {
@@ -1717,8 +1969,8 @@ body::before {
 }
 
 .leaderboard-row.current-user {
-  background: rgba(155, 89, 182, 0.15);
-  border-left: 3px solid var(--neon-purple);
+  background: rgba(200,168,78,0.08);
+  border-left: 3px solid var(--gold-primary);
 }
 
 .leaderboard-member-info {
@@ -1734,6 +1986,7 @@ body::before {
   color: var(--gold-primary);
   width: 20px;
   text-align: center;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .leaderboard-name {
@@ -1745,6 +1998,7 @@ body::before {
 
 .leaderboard-xp-val {
   color: var(--gold-bright);
+  text-shadow: 0 0 4px rgba(200,168,78,0.2);
 }
 
 .tavern-list-item {
@@ -1752,13 +2006,13 @@ body::before {
   justify-content: space-between;
   align-items: center;
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(155, 89, 182, 0.2);
+  border-bottom: 1px solid rgba(200,168,78,0.08);
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .tavern-list-item:hover {
-  background: rgba(155, 89, 182, 0.1);
+  background: rgba(200,168,78,0.04);
 }
 
 .tavern-list-item:last-child {
@@ -1767,8 +2021,8 @@ body::before {
 
 .member-kick-btn {
   background: none;
-  border: 1px solid #e74c3c;
-  color: #e74c3c;
+  border: 1px solid var(--danger);
+  color: var(--danger-bright);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.65rem;
@@ -1778,7 +2032,7 @@ body::before {
 }
 
 .member-kick-btn:hover {
-  background: #e74c3c;
+  background: var(--danger);
   color: #fff;
 }
 
@@ -1797,12 +2051,14 @@ body::before {
 
 .member-promote-btn:hover {
   background: var(--gold-primary);
-  color: #1a0f35;
+  color: #1a0f20;
 }
 
-/* --- Tavern Panel & Chat Overhaul --- */
+/* ═══════════════════════════════════════════
+   TAVERN PANEL & CHAT LAYOUT
+   ═══════════════════════════════════════════ */
 #tavern-panel {
-  overflow-y: hidden !important; /* Lock panel scroll */
+  overflow-y: hidden !important;
   padding-bottom: 20px;
 }
 
@@ -1840,10 +2096,12 @@ body::before {
 .tavern-chat-container {
   flex: 1;
   min-height: 0;
-  background: rgba(15, 8, 30, 0.6);
-  border: 3px solid var(--neon-purple);
-  border-radius: 8px;
-  box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+  background: linear-gradient(180deg, #0d0b14, #08060e);
+  border: 3px solid var(--stone-border);
+  border-top-color: var(--metal-iron);
+  border-bottom-color: rgba(0,0,0,0.6);
+  border-radius: 6px;
+  box-shadow: inset 0 3px 15px rgba(0,0,0,0.9), inset 0 -2px 6px rgba(0,0,0,0.5);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1857,150 +2115,16 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: radial-gradient(circle at center, rgba(30, 20, 50, 0.4), rgba(10, 5, 20, 0.8));
+  background: radial-gradient(circle at center, rgba(26, 20, 40, 0.4), rgba(8, 6, 14, 0.8));
 }
 
-/* --- Clash Royale-Style Speech Bubbles --- */
-.chat-msg {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px;
-  background: linear-gradient(135deg, #2a1b4e, #1a0f35);
-  border: 2px solid var(--metal-iron);
-  border-radius: 14px 14px 14px 2px; /* speech bubble style for others */
-  margin-bottom: 8px;
-  max-width: 80%;
-  width: fit-content;
-  align-self: flex-start;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-  position: relative;
-}
-
-.chat-msg.self {
-  align-self: flex-end;
-  background: linear-gradient(135deg, #4f2d7a, #321850);
-  border-color: var(--neon-purple);
-  border-radius: 14px 14px 2px 14px; /* speech bubble style for self */
-  box-shadow: 0 4px 6px rgba(155, 89, 182, 0.15);
-}
-
-.chat-msg.system {
-  align-self: center;
-  background: rgba(244, 196, 48, 0.08);
-  border: 1px dashed rgba(244, 196, 48, 0.4);
-  border-radius: 8px;
-  color: var(--gold-bright);
-  font-size: 0.8rem;
-  max-width: 95%;
-  width: 95%;
-  text-align: center;
-  padding: 8px 12px;
-  box-shadow: none;
-  font-family: var(--font-title);
-  line-height: 1.3;
-}
-
-.chat-msg-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  margin-bottom: 5px;
-  flex-wrap: wrap;
-}
-
-.chat-msg-sender {
-  color: var(--gold-bright);
-  font-family: var(--font-title);
-  font-size: 0.65rem;
-}
-
-.chat-msg.self .chat-msg-sender {
-  color: #a29bfe;
-}
-
-.chat-msg-role-badge {
-  font-size: 0.55rem;
-  font-family: var(--font-title);
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-weight: bold;
-  letter-spacing: 0.5px;
-}
-
-.chat-msg-role-badge.leader {
-  background: var(--gold-primary);
-  color: #1a0f35;
-  box-shadow: 0 0 5px rgba(244, 196, 48, 0.5);
-}
-
-.chat-msg-role-badge.coleader {
-  background: #3498db;
-  color: #fff;
-  box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
-}
-
-.chat-msg-role-badge.member {
-  background: var(--metal-iron);
-  color: var(--text-main);
-}
-
-.chat-msg-time {
-  font-size: 0.7rem;
-  opacity: 0.6;
-}
-
-.chat-msg-avatar-icon {
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chat-msg-mini-avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--metal-iron);
-}
-
-.chat-msg-text {
-  font-size: 0.95rem;
-  color: var(--text-main);
-  word-break: break-word;
-  line-height: 1.3;
-}
-
-.chat-msg-sender {
-  color: var(--gold-bright);
-  font-family: var(--font-title);
-  font-size: 0.75rem;
-}
-
-.chat-msg.system {
-  align-self: center;
-  background: rgba(244, 196, 48, 0.08);
-  border: 1px dashed rgba(244, 196, 48, 0.4);
-  border-radius: 8px;
-  color: var(--gold-bright);
-  font-size: 0.8rem;
-  max-width: 95%;
-  width: 95%;
-  text-align: center;
-  padding: 6px 10px;
-  box-shadow: none;
-  font-family: var(--font-title);
-  line-height: 1.3;
-}
-
-/* --- Tavern Settings UI & Visual Themes --- */
-
+/* ═══════════════════════════════════════════
+   TAVERN SETTINGS & VISUAL THEMES
+   ═══════════════════════════════════════════ */
 .tavern-code-plaque {
-  background: rgba(244, 196, 48, 0.1);
-  border: 2px solid #f4c430;
-  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(200,168,78,0.08), rgba(200,168,78,0.03));
+  border: 2px solid var(--gold-primary);
+  border-radius: 4px;
   padding: 4px 10px;
   cursor: pointer;
   display: flex;
@@ -2008,11 +2132,11 @@ body::before {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  box-shadow: 0 0 10px rgba(244, 196, 48, 0.2);
+  box-shadow: 0 0 8px rgba(200,168,78,0.15);
 }
 .tavern-code-plaque:hover {
-  background: rgba(244, 196, 48, 0.2);
-  box-shadow: 0 0 18px rgba(244, 196, 48, 0.4);
+  background: linear-gradient(135deg, rgba(200,168,78,0.15), rgba(200,168,78,0.06));
+  box-shadow: 0 0 14px rgba(200,168,78,0.3);
   transform: scale(1.03);
 }
 .tavern-code-plaque:active {
@@ -2022,7 +2146,7 @@ body::before {
   font-size: 1.25rem;
   font-family: var(--font-title);
   color: #fff;
-  text-shadow: 0 0 8px rgba(244, 196, 48, 0.6);
+  text-shadow: 0 0 8px rgba(200,168,78,0.5);
   letter-spacing: 1px;
 }
 
@@ -2038,7 +2162,7 @@ body::before {
   border-radius: 50% !important;
 }
 
-/* Theme Picker & Color Buttons */
+/* Theme Picker */
 .theme-btn {
   transition: transform 0.2s, border-color 0.2s;
 }
@@ -2052,81 +2176,83 @@ body::before {
 
 /* Tavern Panel Theme Colors */
 #tavern-panel.theme-gold {
-  box-shadow: inset 0 0 25px rgba(244, 196, 48, 0.25);
-  border-left: 2px solid #f4c430;
-  border-right: 2px solid #f4c430;
+  box-shadow: inset 0 0 25px rgba(200,168,78,0.2);
+  border-left: 2px solid var(--gold-primary);
+  border-right: 2px solid var(--gold-primary);
 }
 #tavern-panel.theme-gold #tavern-hub-name,
 #tavern-panel.theme-gold #tavern-motd-container h4 {
-  color: #f4c430 !important;
+  color: var(--gold-primary) !important;
 }
 #tavern-panel.theme-gold .profile-card {
-  border-color: #f4c430 !important;
+  border-color: var(--gold-primary) !important;
 }
 
 #tavern-panel.theme-purple {
-  box-shadow: inset 0 0 25px rgba(155, 89, 182, 0.25);
-  border-left: 2px solid #9b59b6;
-  border-right: 2px solid #9b59b6;
+  box-shadow: inset 0 0 25px rgba(122, 74, 192, 0.2);
+  border-left: 2px solid #7a4ac0;
+  border-right: 2px solid #7a4ac0;
 }
 #tavern-panel.theme-purple #tavern-hub-name,
 #tavern-panel.theme-purple #tavern-motd-container h4 {
-  color: #9b59b6 !important;
+  color: #7a4ac0 !important;
 }
 #tavern-panel.theme-purple .profile-card {
-  border-color: #9b59b6 !important;
+  border-color: #7a4ac0 !important;
 }
 
 #tavern-panel.theme-red {
-  box-shadow: inset 0 0 25px rgba(231, 76, 60, 0.25);
-  border-left: 2px solid #e74c3c;
-  border-right: 2px solid #e74c3c;
+  box-shadow: inset 0 0 25px rgba(168, 58, 42, 0.2);
+  border-left: 2px solid var(--danger);
+  border-right: 2px solid var(--danger);
 }
 #tavern-panel.theme-red #tavern-hub-name,
 #tavern-panel.theme-red #tavern-motd-container h4 {
-  color: #e74c3c !important;
+  color: var(--danger-bright) !important;
 }
 #tavern-panel.theme-red .profile-card {
-  border-color: #e74c3c !important;
+  border-color: var(--danger) !important;
 }
 
 #tavern-panel.theme-green {
-  box-shadow: inset 0 0 25px rgba(46, 204, 113, 0.25);
-  border-left: 2px solid #2ecc71;
-  border-right: 2px solid #2ecc71;
+  box-shadow: inset 0 0 25px rgba(58, 138, 64, 0.2);
+  border-left: 2px solid var(--emerald);
+  border-right: 2px solid var(--emerald);
 }
 #tavern-panel.theme-green #tavern-hub-name,
 #tavern-panel.theme-green #tavern-motd-container h4 {
-  color: #2ecc71 !important;
+  color: var(--emerald-bright) !important;
 }
 #tavern-panel.theme-green .profile-card {
-  border-color: #2ecc71 !important;
+  border-color: var(--emerald) !important;
 }
 
 #tavern-panel.theme-blue {
-  box-shadow: inset 0 0 25px rgba(52, 152, 219, 0.25);
-  border-left: 2px solid #3498db;
-  border-right: 2px solid #3498db;
+  box-shadow: inset 0 0 25px rgba(74, 122, 176, 0.2);
+  border-left: 2px solid var(--tier-challenging);
+  border-right: 2px solid var(--tier-challenging);
 }
 #tavern-panel.theme-blue #tavern-hub-name,
 #tavern-panel.theme-blue #tavern-motd-container h4 {
-  color: #3498db !important;
+  color: var(--tier-challenging) !important;
 }
 #tavern-panel.theme-blue .profile-card {
-  border-color: #3498db !important;
+  border-color: var(--tier-challenging) !important;
 }
 
-/* Big Quest Completion Chat Card */
+/* ═══════════════════════════════════════════
+   BIG QUEST COMPLETION CHAT CARD
+   ═══════════════════════════════════════════ */
 .chat-msg.big-quest-completion {
   align-self: center !important;
-  background: linear-gradient(135deg, #2c1a04, #4a3000) !important;
-  border: 3px double #f4c430 !important;
-  border-radius: 12px !important;
+  background: linear-gradient(135deg, #2a1a08, #3a2810) !important;
+  border: 3px double var(--gold-primary) !important;
+  border-radius: 8px !important;
   color: var(--text-main) !important;
   max-width: 95% !important;
   width: 95% !important;
   padding: 12px 15px !important;
-  box-shadow: 0 0 15px rgba(244, 196, 48, 0.4), inset 0 0 10px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 0 15px rgba(200,168,78,0.3), inset 0 0 10px rgba(0, 0, 0, 0.6) !important;
   position: relative !important;
   overflow: hidden;
   animation: gold-pulse 2s infinite alternate;
@@ -2134,12 +2260,12 @@ body::before {
 
 @keyframes gold-pulse {
   0% {
-    box-shadow: 0 0 10px rgba(244, 196, 48, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.6);
-    border-color: #f4c430;
+    box-shadow: 0 0 10px rgba(200,168,78,0.2), inset 0 0 10px rgba(0, 0, 0, 0.6);
+    border-color: var(--gold-primary);
   }
   100% {
-    box-shadow: 0 0 25px rgba(244, 196, 48, 0.6), inset 0 0 10px rgba(0, 0, 0, 0.6);
-    border-color: #ffe066;
+    box-shadow: 0 0 25px rgba(200,168,78,0.5), inset 0 0 10px rgba(0, 0, 0, 0.6);
+    border-color: var(--gold-bright);
   }
 }
 
@@ -2153,7 +2279,7 @@ body::before {
 .big-quest-crown {
   font-size: 2.2rem;
   animation: bounce-crown 1s infinite alternate;
-  filter: drop-shadow(0 0 8px rgba(244, 196, 48, 0.6));
+  filter: drop-shadow(0 0 8px rgba(200,168,78,0.5));
 }
 
 @keyframes bounce-crown {
@@ -2171,9 +2297,9 @@ body::before {
 .big-quest-title-text {
   font-family: var(--font-title);
   font-size: 0.85rem;
-  color: #f4c430;
+  color: var(--gold-primary);
   margin: 0;
-  text-shadow: 0 0 8px rgba(244, 196, 48, 0.5);
+  text-shadow: 0 0 8px rgba(200,168,78,0.4);
   letter-spacing: 1px;
 }
 
@@ -2189,20 +2315,23 @@ body::before {
   font-size: 0.75rem;
   color: #fff;
   margin: 2px 0;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0,0,0,0.4);
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid rgba(244, 196, 48, 0.3);
+  border: 1px solid rgba(200,168,78,0.2);
   word-break: break-word;
 }
 
 .big-quest-xp-reward {
   font-size: 0.9rem;
-  color: #2ecc71;
+  color: var(--emerald-bright);
   font-weight: bold;
+  text-shadow: 0 0 4px rgba(78,189,84,0.3);
 }
 
-/* Range input retro style */
+/* ═══════════════════════════════════════════
+   RANGE INPUTS & SETTINGS
+   ═══════════════════════════════════════════ */
 input[type="range"] {
   height: 25px;
   -webkit-appearance: none;
@@ -2216,34 +2345,35 @@ input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
   height: 6px;
   cursor: pointer;
-  background: #110822;
-  border: 1px solid var(--neon-purple);
+  background: linear-gradient(180deg, #0d0b14, #121020);
+  border: 1px solid var(--stone-border);
   border-radius: 2px;
 }
 input[type="range"]::-webkit-slider-thumb {
   height: 16px;
   width: 16px;
   border-radius: 2px;
-  background: var(--gold-primary);
-  border: 1px solid #000;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-primary));
+  border: 1px solid var(--gold-dark);
   cursor: pointer;
   -webkit-appearance: none;
   margin-top: -6px;
+  box-shadow: 0 0 4px rgba(200,168,78,0.3);
 }
 input[type="range"]::-moz-range-track {
   width: 100%;
   height: 6px;
   cursor: pointer;
-  background: #110822;
-  border: 1px solid var(--neon-purple);
+  background: linear-gradient(180deg, #0d0b14, #121020);
+  border: 1px solid var(--stone-border);
   border-radius: 2px;
 }
 input[type="range"]::-moz-range-thumb {
   height: 16px;
   width: 16px;
   border-radius: 2px;
-  background: var(--gold-primary);
-  border: 1px solid #000;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-primary));
+  border: 1px solid var(--gold-dark);
   cursor: pointer;
 }
 
@@ -2251,37 +2381,46 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--font-body);
   font-size: 1rem;
   color: var(--text-main);
-  background: #110822;
-  border: 2px solid var(--neon-purple);
+  background: linear-gradient(180deg, #0d0b14, #121020);
+  border: 2px solid var(--stone-border);
   padding: 6px;
   border-radius: 4px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.settings-group select:focus {
+  border-color: var(--gold-primary);
+  outline: none;
 }
 
 .role-manage-btn {
   font-family: var(--font-title);
   font-size: 0.55rem;
   padding: 4px 6px;
-  background: var(--panel-bg);
-  border: 1.5px solid var(--neon-purple);
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border: 1.5px solid var(--stone-border);
   color: var(--text-main);
   border-radius: 3px;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .role-manage-btn:hover {
   border-color: var(--gold-primary);
   color: var(--gold-primary);
 }
 .role-manage-btn.kick-danger {
-  border-color: #e74c3c;
-  color: #e74c3c;
+  border-color: var(--danger);
+  color: var(--danger-bright);
 }
 .role-manage-btn.kick-danger:hover {
-  background: #e74c3c;
+  background: var(--danger);
   color: #fff;
 }
 
-/* In-App Toast Notification System */
+/* ═══════════════════════════════════════════
+   IN-APP TOAST NOTIFICATION SYSTEM
+   ═══════════════════════════════════════════ */
 #toast-container {
   position: fixed;
   top: 20px;
@@ -2298,15 +2437,17 @@ input[type="range"]::-moz-range-thumb {
 
 .custom-toast {
   pointer-events: auto;
-  background: linear-gradient(135deg, rgba(20, 10, 35, 0.95), rgba(35, 15, 60, 0.95));
+  background: linear-gradient(135deg, #1a1428, #221a30);
   border: 3px solid var(--gold-primary);
-  color: #ffffff;
+  border-top-color: var(--gold-bright);
+  border-bottom-color: var(--gold-dark);
+  color: var(--text-main);
   padding: 14px 18px;
   font-family: var(--font-body);
   font-size: 0.95rem;
   line-height: 1.4;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 0 12px rgba(244, 196, 48, 0.2);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), 0 0 15px rgba(200,168,78,0.1), inset 0 1px 2px rgba(200,168,78,0.06);
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -2319,8 +2460,8 @@ input[type="range"]::-moz-range-thumb {
 
 .custom-toast:hover {
   transform: scale(1.02);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.9), inset 0 0 16px rgba(244, 196, 48, 0.35);
-  border-color: #ffd700;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.9), 0 0 20px rgba(200,168,78,0.2);
+  border-color: var(--gold-bright);
 }
 
 .custom-toast .toast-icon {
@@ -2337,19 +2478,21 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--font-title);
   font-size: 0.6rem;
   color: var(--gold-primary);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--gold-primary);
+  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
+  border: 1px solid var(--gold-dark);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 3px;
   margin-left: 8px;
   align-self: center;
   flex-shrink: 0;
   transition: all 0.2s;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
 .custom-toast .toast-close:hover {
   background: var(--gold-primary);
-  color: #000;
+  color: #1a0f20;
 }
 
 .custom-toast.fade-out {
@@ -2378,6 +2521,10 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
-
-
-
+/* ═══════════════════════════════════════════
+   STAT VALUE HIGHLIGHT
+   ═══════════════════════════════════════════ */
+.stat-value {
+  color: var(--gold-bright);
+  text-shadow: 0 0 4px rgba(200,168,78,0.2);
+}

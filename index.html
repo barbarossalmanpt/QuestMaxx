@@ -26,10 +26,10 @@
         <button id="btn-auth-google" class="stone-button" style="padding: 12px 0; font-size: 0.75rem; width: 100%; border-color: #4285F4; color: #4285F4; display: flex; align-items: center; justify-content: center; gap: 8px;">
           <span>🌐</span> SIGN IN WITH GOOGLE
         </button>
-        <button id="btn-show-email-screen" class="stone-button" style="padding: 12px 0; font-size: 0.75rem; width: 100%; border-color: var(--neon-purple); color: var(--text-main); display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <button id="btn-show-email-screen" class="stone-button" style="padding: 12px 0; font-size: 0.75rem; width: 100%; border-color: var(--stone-border); color: var(--text-main); display: flex; align-items: center; justify-content: center; gap: 8px;">
           <span>✉️</span> SIGN IN WITH EMAIL
         </button>
-        <button id="btn-auth-guest" class="stone-button" style="padding: 12px 0; font-size: 0.75rem; width: 100%; border-color: #2ecc71; color: #2ecc71; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <button id="btn-auth-guest" class="stone-button" style="padding: 12px 0; font-size: 0.75rem; width: 100%; border-color: var(--emerald-bright); color: var(--emerald-bright); display: flex; align-items: center; justify-content: center; gap: 8px;">
           <span>🤖</span> SIMULATE GUEST ENTRY
         </button>
       </div>
@@ -45,7 +45,7 @@
         <button id="btn-back-to-options" class="choice-close-btn" style="width: 100%; border-color: var(--metal-iron); color: var(--text-dim); margin-top: 5px;">← BACK</button>
       </div>
 
-      <p id="auth-error-msg" class="empty-msg hidden" style="color: #e74c3c; text-align: center; margin-top: 10px; font-size: 1rem;"></p>
+      <p id="auth-error-msg" class="empty-msg hidden" style="color: var(--danger-bright); text-align: center; margin-top: 10px; font-size: 1rem;"></p>
     </div>
   </div>
 
@@ -173,7 +173,7 @@
       <div class="codex-actions">
         <button id="btn-codex-action" class="stone-button success-btn">ACCEPT QUEST</button>
         <button id="btn-codex-invite" class="stone-button small-btn hidden">INVITE PARTY</button>
-        <button id="btn-codex-tavern-invite" class="stone-button small-btn hidden" style="border-color: var(--neon-purple); color: var(--text-main); margin-left: 5px;">INVITE TAVERN</button>
+        <button id="btn-codex-tavern-invite" class="stone-button small-btn hidden" style="border-color: var(--stone-border); color: var(--text-main); margin-left: 5px;">INVITE TAVERN</button>
       </div>
       <button id="quest-codex-close" class="choice-close-btn">✕ CLOSE</button>
     </div>
@@ -205,8 +205,8 @@
           </div>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 10px; width: 100%;">
-          <button id="btn-add-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: #2ecc71; color: #2ecc71;">ADD FRIEND</button>
-          <button id="btn-remove-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: #e74c3c; color: #e74c3c;">REMOVE FRIEND</button>
+          <button id="btn-add-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: var(--emerald-bright); color: var(--emerald-bright);">ADD FRIEND</button>
+          <button id="btn-remove-friend" class="stone-button small-btn hidden" style="width: 100%; border-color: var(--danger-bright); color: var(--danger-bright);">REMOVE FRIEND</button>
         </div>
       </div>
 
@@ -386,7 +386,7 @@
           </div>
         </div>
         <!-- Logout Button -->
-        <button id="btn-auth-logout" class="stone-button small-btn" style="margin-top: 5px; padding: 6px 12px; font-size: 0.65rem; border-color: #e74c3c; color: #e74c3c;">LOGOUT</button>
+        <button id="btn-auth-logout" class="stone-button small-btn" style="margin-top: 5px; padding: 6px 12px; font-size: 0.65rem; border-color: var(--danger-bright); color: var(--danger-bright);">LOGOUT</button>
       </div>
 
       <!-- Avatar Selector Modal (Presets + Upload) -->
@@ -553,7 +553,7 @@
           <h2 class="app-title">ADVENTURER TAVERN</h2>
         </div>
 
-        <div class="profile-card" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; border-color: var(--neon-purple);">
+        <div class="profile-card" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; border-color: var(--gold-dark);">
           <h3 class="ledger-title" style="color: var(--gold-primary); text-align: center;">CREATE A TAVERN</h3>
           <input type="text" id="tavern-create-name" placeholder="TAVERN NAME" maxlength="15" class="retro-input" style="width: 100%;">
           <input type="text" id="tavern-create-desc" placeholder="DESCRIPTION" maxlength="40" class="retro-input" style="width: 100%;">
@@ -575,7 +575,7 @@
           <button id="btn-tavern-create" class="stone-button success-btn" style="width: 100%; margin-top: 5px; padding: 10px 0;">CREATE TAVERN</button>
         </div>
 
-        <div class="profile-card" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; border-color: var(--neon-purple);">
+        <div class="profile-card" style="padding: 15px; display: flex; flex-direction: column; gap: 10px; border-color: var(--gold-dark);">
           <h3 class="ledger-title" style="color: var(--gold-primary); text-align: center;">JOIN BY CODE</h3>
           <div style="display: flex; gap: 10px;">
             <input type="text" id="tavern-join-code" placeholder="TAVERN CODE" maxlength="7" class="retro-input" style="flex: 1; text-transform: uppercase;">
@@ -648,7 +648,7 @@
               <button id="btn-tavern-settings" class="stone-button small-btn" style="flex: 1; font-size: 0.65rem; padding: 4px; border-color: var(--gold-primary);">⚙️ SETTINGS</button>
             </div>
             
-            <button id="btn-tavern-leave" class="stone-button small-btn" style="margin-top: 10px; width: 100%; border-color: #e74c3c; color: #e74c3c; padding: 6px 0; font-size: 0.75rem;">LEAVE TAVERN</button>
+            <button id="btn-tavern-leave" class="stone-button small-btn" style="margin-top: 10px; width: 100%; border-color: var(--danger-bright); color: var(--danger-bright); padding: 6px 0; font-size: 0.75rem;">LEAVE TAVERN</button>
           </div>
 
           <!-- Clan Member Leaderboard -->
@@ -686,6 +686,6 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=3.4"></script>
+  <script type="module" src="app.js?v=4.0"></script>
 </body>
 </html>

@@ -3177,7 +3177,7 @@ function updateNotificationsUI() {
           </div>
           <p style="font-size:0.85rem; margin-top: 5px; color:var(--text-main);">Wants to join: <strong>${n.tavernName}</strong></p>
           <div style="display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap;">
-            <button class="stone-button small-btn view-profile-btn" style="padding: 5px 8px; font-size: 0.65rem; border-color: var(--neon-purple); color: var(--text-main); flex: 1;" data-action="view-profile" data-uid="${n.senderUid}" data-id="${n.id}">VIEW PROFILE</button>
+            <button class="stone-button small-btn view-profile-btn" style="padding: 5px 8px; font-size: 0.65rem; border-color: var(--stone-border); color: var(--text-main); flex: 1;" data-action="view-profile" data-uid="${n.senderUid}" data-id="${n.id}">VIEW PROFILE</button>
             <button class="stone-button small-btn accept-btn" style="padding: 5px 8px; font-size: 0.65rem; border-color: var(--emerald); color: var(--emerald); flex: 1;" data-action="accept-tavern" data-id="${n.id}">ACCEPT</button>
             <button class="stone-button small-btn decline-btn" style="padding: 5px 8px; font-size: 0.65rem; border-color: #e74c3c; color: #e74c3c; flex: 1;" data-action="decline-tavern" data-id="${n.id}">DECLINE</button>
           </div>
