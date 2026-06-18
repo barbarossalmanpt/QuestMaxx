@@ -5,55 +5,55 @@
 */
 
 :root {
-  /* === DUNGEON STONE PALETTE === */
-  --bg-deep: #0d0b14;           /* Deepest dungeon black-purple */
-  --bg-stone: #12101c;          /* Dark stone floor */
-  --surface: #1a1428;           /* Stone slab surface */
-  --panel-bg: #221a30;          /* Raised stone panel */
-  --panel-raised: #2a2038;      /* Lighter stone for hover */
+  /* === DUNGEON/VILLAGE STONE PALETTE === */
+  --bg-deep: #080c12;           /* Dark sky at top */
+  --bg-stone: #10140f;          /* Dark pine shadow */
+  --surface: #10140f;           /* Dark pine shadow */
+  --panel-bg: rgba(10, 11, 16, 0.85); /* Near black with blue */
+  --panel-raised: rgba(20, 22, 32, 0.9); /* Lighter raised panel */
 
   /* === GOLD & METAL === */
-  --gold-primary: #c8a84e;      /* Aged amber gold — frames, titles */
-  --gold-bright: #f0d060;       /* Burnished gold — highlights */
-  --gold-dark: #7a6530;         /* Tarnished gold — shadows, bevels */
-  --gold-dim: rgba(200,168,78,0.15); /* Soft gold glow */
-  --metal-iron: #4a4555;        /* Dark iron rivets */
-  --metal-light: #6a6070;       /* Lighter iron */
-  --bronze: #8a6e3a;            /* Bronze trim */
+  --gold-primary: #c49a3c;      /* Lantern iron frame color */
+  --gold-bright: #e8b84b;       /* Brightest lantern glow */
+  --gold-dark: #7a5f22;         /* Tarnished gold */
+  --gold-dim: rgba(196, 154, 60, 0.15);
+  --metal-iron: #3a4038;        /* Metal rivets */
+  --metal-light: #5a6058;
+  --bronze: #7a5f22;
 
   /* === WOOD & WARMTH === */
-  --wood-dark: #3a2a1a;         /* Dark oak */
-  --wood-light: #6b4c30;        /* Warm brown oak */
-  --torch-glow: #e8842a;        /* Torchlight orange */
-  --torch-dim: rgba(232,132,42,0.15); /* Ambient torch */
-  --ember: #d4722a;             /* Ember particle */
+  --wood-dark: #2a1e14;         /* Dark roof timber */
+  --wood-light: #543c28;
+  --torch-glow: #d4601a;        /* Deep amber-orange lantern glow */
+  --torch-dim: rgba(212, 96, 26, 0.15);
+  --ember: #d4601a;
 
   /* === STATUS COLORS === */
-  --emerald: #3a8a40;           /* Forest green — success */
-  --emerald-bright: #4ebd54;    /* Bright green highlights */
-  --danger: #a83a2a;            /* Blood red */
-  --danger-bright: #d44a38;     /* Brighter danger */
+  --emerald: #3a8a40;
+  --emerald-bright: #4ebd54;
+  --danger: #a83a2a;
+  --danger-bright: #d44a38;
 
   /* === TIER / RARITY === */
-  --tier-chill: #3a8a40;        /* Forest green */
-  --tier-challenging: #4a7ab0;  /* Steel blue */
-  --tier-epic: #7a4ac0;         /* Royal purple */
-  --tier-legendary: #c89820;    /* Deep gold */
+  --tier-chill: #3a8a40;
+  --tier-challenging: #4a7ab0;
+  --tier-epic: #7a4ac0;
+  --tier-legendary: #c49a3c;
 
   /* === TEXT === */
-  --text-main: #e8dcc8;         /* Warm parchment white */
-  --text-dim: #8a7e6a;          /* Dusty stone */
-  --text-dark: #5a5248;         /* Very dim stone */
+  --text-main: #c8c0a8;         /* Cold parchment */
+  --text-dim: #6a7060;          /* Shadowed stone */
+  --text-dark: #4e5444;
 
   /* === STONE BORDERS === */
-  --stone-border: #3a3248;      /* Muted purple-stone border */
-  --stone-border-light: #4a4058; /* Lighter stone border */
+  --stone-border: #2e3428;      /* Dark ivy-covered stone edge */
+  --stone-border-light: #3e4438;
 
   /* === TYPOGRAPHY === */
   --font-title: 'Press Start 2P', monospace;
   --font-body: 'VT323', monospace;
 
-  /* LEGACY COMPAT — maps old var names to new palette */
+  /* LEGACY COMPAT */
   --neon-purple: var(--stone-border);
   --flame-orange: var(--torch-glow);
 }
@@ -77,15 +77,22 @@ body {
   font-family: var(--font-body);
   overflow: hidden;
   font-size: 18px;
-  background-color: var(--bg-deep);
   background-image: 
     /* Dark overlay/vignette to ensure readability */
-    radial-gradient(circle at 50% 50%, rgba(13, 11, 20, 0.45) 0%, rgba(13, 11, 20, 0.85) 100%),
-    url('background_village.jpg');
-  background-size: cover;
-  background-position: center;
+    radial-gradient(circle at 50% 50%, rgba(8, 10, 14, 0.4) 0%, rgba(8, 10, 14, 0.8) 100%),
+    url('bg.png');
+  background-position: center top;
   background-repeat: no-repeat;
+  background-attachment: scroll;
+  background-size: auto 100%;
   image-rendering: pixelated;
+}
+
+@media (min-width: 1024px) {
+  body {
+    background-size: auto 100vh;
+    background-color: #0d1a0f;
+  }
 }
 
 /* Stone texture noise overlay */
@@ -318,16 +325,14 @@ body::after {
    STONE BUTTONS & INTERACTIONS
    ═══════════════════════════════════════════ */
 .stone-button {
-  background: linear-gradient(180deg, #2a2238 0%, #1e1830 50%, #161224 100%);
-  border: 3px solid var(--gold-primary);
-  border-top-color: var(--gold-bright);
-  border-bottom-color: var(--gold-dark);
-  color: var(--gold-primary);
+  background: linear-gradient(180deg, #1e1c14 0%, #141208 100%);
+  border: 2px solid #c49a3c;
+  color: #e8b84b;
   font-family: var(--font-title);
   font-size: 1rem;
   padding: 15px 20px;
   cursor: pointer;
-  text-shadow: 0 0 6px rgba(200,168,78,0.3), 1px 1px 0px #000;
+  text-shadow: 1px 1px 0px #000;
   box-shadow: 
     0 3px 8px rgba(0,0,0,0.6),
     inset 0 1px 2px rgba(200,168,78,0.08),
@@ -336,29 +341,23 @@ body::after {
   transition: transform 0.1s, box-shadow 0.2s, border-color 0.2s;
 }
 .stone-button:hover {
-  border-color: var(--gold-bright);
-  box-shadow: 
-    0 3px 12px rgba(200,168,78,0.2),
-    inset 0 1px 2px rgba(200,168,78,0.12),
-    inset 0 -2px 4px rgba(0,0,0,0.4);
+  border-color: #e8b84b;
+  box-shadow: 0 0 10px rgba(212,96,26,0.35);
 }
 .stone-button:active {
   transform: translateY(2px);
-  border-top-color: var(--gold-dark);
-  border-bottom-color: var(--gold-bright);
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.7);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
 }
 
 .giant-button {
   font-size: 1.4rem;
   padding: 30px 35px;
   border-radius: 6px;
-  color: var(--gold-bright);
-  border-width: 4px;
+  color: #e8b84b;
+  border-width: 2px;
   box-shadow: 
     0 5px 15px rgba(0,0,0,0.7),
-    0 0 25px rgba(200,168,78,0.08),
-    inset 0 2px 4px rgba(200,168,78,0.1),
+    inset 0 1px 2px rgba(200,168,78,0.08),
     inset 0 -3px 6px rgba(0,0,0,0.5);
 }
 
@@ -442,10 +441,8 @@ body::after {
 }
 
 .choice-card {
-  background: linear-gradient(180deg, #2a2238 0%, #1a1428 50%, #141020 100%);
-  border: 3px solid var(--stone-border-light);
-  border-top-color: var(--metal-light);
-  border-bottom-color: rgba(0,0,0,0.6);
+  background: rgba(8, 10, 14, 0.88);
+  border: 1px solid #3a3020;
   width: 140px;
   height: 160px;
   display: flex;
@@ -455,15 +452,15 @@ body::after {
   gap: 12px;
   cursor: pointer;
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.6), inset 0 0 15px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(200,168,78,0.08);
   transition: all 0.2s ease;
 }
 .choice-card:active {
   transform: scale(0.95);
+  border: 2px solid #c49a3c;
 }
 .choice-card:hover {
-  border-color: var(--gold-primary);
-  box-shadow: 0 4px 20px rgba(200,168,78,0.2), inset 0 0 15px rgba(200,168,78,0.05);
+  border-color: #c49a3c;
 }
 .choice-card .slot-icon {
   font-size: 2.8rem;
@@ -574,7 +571,7 @@ body::after {
 .xp-bar-container {
   flex-grow: 1;
   height: 15px;
-  background: rgba(0,0,0,0.6);
+  background: #1a1a14;
   border: 2px solid #000;
   border-top-color: rgba(0,0,0,0.8);
   border-bottom-color: rgba(50,40,30,0.5);
@@ -584,8 +581,8 @@ body::after {
 .xp-bar-fill {
   height: 100%;
   width: 16.6%;
-  background: linear-gradient(90deg, var(--emerald), var(--emerald-bright));
-  box-shadow: inset 0 2px 2px rgba(255,255,255,0.15), 0 0 6px rgba(58,138,64,0.4);
+  background: linear-gradient(90deg, #c47820, #e8a030);
+  box-shadow: inset 0 2px 2px rgba(255,255,255,0.15);
   transition: width 0.3s ease;
   border-radius: 1px;
 }
@@ -785,14 +782,14 @@ body::after {
   padding-bottom: 20px;
 }
 .quest-card {
-  background: linear-gradient(135deg, #1a1428, #221a30);
-  border: 2px solid var(--stone-border);
-  border-left-width: 7px;
+  background: #0a0c10;
+  border: 1px solid #3a3020;
+  border-left: 7px solid var(--stone-border);
   border-radius: 6px;
   padding: 12px;
   display: flex;
   gap: 12px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(200,168,78,0.04);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.6), inset 0 1px 0 rgba(200,168,78,0.08);
   position: relative;
   opacity: 0;
   transform: translateY(20px);
@@ -801,9 +798,9 @@ body::after {
   transition: border-color 0.2s, background 0.2s;
 }
 .quest-card.selected-card {
-  border-color: var(--gold-primary) !important;
-  background: linear-gradient(135deg, #2a2238, #1e1830) !important;
-  box-shadow: 0 0 15px rgba(200,168,78,0.15), inset 0 0 10px rgba(200,168,78,0.05);
+  border-color: #c49a3c !important;
+  background: #0a0c10 !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.6), inset 0 1px 0 rgba(200,168,78,0.08);
 }
 @keyframes cardDrop {
   to { opacity: 1; transform: translateY(0); }
@@ -814,7 +811,6 @@ body::after {
 .quest-card[data-rarity="epic"] { border-left-color: var(--tier-epic); }
 .quest-card[data-rarity="legendary"] { 
   border-left-color: var(--tier-legendary); 
-  box-shadow: 0 0 12px rgba(200,152,32,0.2), inset 0 0 8px rgba(200,152,32,0.05);
 }
 
 .quest-icon {
@@ -864,14 +860,19 @@ body::after {
   justify-content: center;
 }
 .success-btn {
-  background: linear-gradient(180deg, var(--emerald), #2a6e30);
-  border: 3px solid #1a5a20;
-  border-top-color: var(--emerald-bright);
-  border-bottom-color: #1a4a1a;
-  color: #fff;
+  background: linear-gradient(180deg, #1e1c14 0%, #141208 100%);
+  border: 2px solid #c49a3c;
+  color: #e8b84b;
   width: 100%;
-  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.1);
+  text-shadow: 1px 1px 0px #000;
+  box-shadow: 
+    0 3px 8px rgba(0,0,0,0.6),
+    inset 0 1px 2px rgba(200,168,78,0.08),
+    inset 0 -2px 4px rgba(0,0,0,0.4);
+}
+.success-btn:hover {
+  border-color: #e8b84b;
+  box-shadow: 0 0 10px rgba(212,96,26,0.35);
 }
 
 /* ═══════════════════════════════════════════
@@ -920,30 +921,34 @@ body::after {
 }
 .particle {
   position: absolute;
-  width: 4px; height: 4px;
-  background: var(--torch-glow);
+  width: 3px; height: 3px;
+  background: #d4601a;
   border-radius: 50%;
   opacity: 0.5;
   bottom: -10px;
   animation: floatUp linear forwards;
-  box-shadow: 0 0 4px rgba(232,132,42,0.4);
+  box-shadow: 0 0 4px rgba(212, 96, 26, 0.4);
 }
+.particle:nth-child(even) {
+  width: 4px; height: 4px;
+  background: #e8a030;
+  box-shadow: 0 0 4px rgba(232, 160, 48, 0.4);
+}
+
 @keyframes floatUp {
-  0% { transform: translateY(0) translateX(0); opacity: 0.5; }
-  25% { transform: translateY(-25vh) translateX(8px); opacity: 0.6; }
-  50% { transform: translateY(-50vh) translateX(-5px); opacity: 0.4; }
-  75% { transform: translateY(-75vh) translateX(10px); opacity: 0.2; }
-  100% { transform: translateY(-100vh) translateX(3px); opacity: 0; }
+  0% { transform: translateY(0) translateX(0); opacity: 0.6; }
+  25% { transform: translateY(-25vh) translateX(4px); opacity: 0.7; }
+  50% { transform: translateY(-50vh) translateX(-3px); opacity: 0.5; }
+  75% { transform: translateY(-75vh) translateX(5px); opacity: 0.3; }
+  100% { transform: translateY(-100vh) translateX(1px); opacity: 0; }
 }
 
 /* ═══════════════════════════════════════════
    PROFILE PANEL & CHARACTER CARD
    ═══════════════════════════════════════════ */
 .profile-card {
-  background: linear-gradient(180deg, #221a30, #1a1428);
-  border: 3px solid var(--gold-primary);
-  border-top-color: var(--gold-bright);
-  border-bottom-color: var(--gold-dark);
+  background: rgba(8, 10, 14, 0.88);
+  border: 1px solid #3a3020;
   border-radius: 6px;
   width: 100%;
   padding: 20px;
@@ -951,7 +956,7 @@ body::after {
   flex-direction: column;
   align-items: center;
   gap: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(200,168,78,0.06);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(200,168,78,0.08);
   margin-bottom: 25px;
 }
 
@@ -994,9 +999,9 @@ body::after {
 }
 
 .retro-input {
-  background: linear-gradient(180deg, #0d0b14, #121020);
-  border: 2px solid var(--stone-border);
-  color: var(--gold-bright);
+  background: #07090d;
+  border: 1px solid #2a2a1e;
+  color: #c8c0a8;
   font-family: var(--font-title);
   font-size: 0.8rem;
   text-align: center;
@@ -1010,9 +1015,13 @@ body::after {
   user-select: text;
 }
 
+.retro-input::placeholder {
+  color: #4a4a38;
+}
+
 .retro-input:focus {
-  border-color: var(--gold-primary);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7), 0 0 8px rgba(200,168,78,0.15);
+  border-color: #c49a3c;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7);
 }
 
 .edit-hint {
@@ -1357,12 +1366,14 @@ body::after {
   color: #fff;
 }
 .accept-btn {
-  background: linear-gradient(180deg, var(--emerald), #2a6e30);
-  border-color: var(--emerald);
+  background: linear-gradient(180deg, #1e1c14 0%, #141208 100%);
+  border: 1px solid #c49a3c;
+  color: #e8b84b;
 }
 .decline-btn {
-  background: linear-gradient(180deg, var(--danger-bright), var(--danger));
-  border-color: var(--danger);
+  background: #3a0e08;
+  border: 1px solid #8a2010;
+  color: #e06040;
 }
 
 /* ═══════════════════════════════════════════
@@ -1372,10 +1383,10 @@ body::after {
   width: 90%;
   max-width: 400px;
   padding: 20px;
-  background: linear-gradient(180deg, var(--surface), var(--bg-stone));
-  border: 4px double var(--gold-primary);
+  background: rgba(8, 10, 14, 0.88);
+  border: 1px solid #3a3020;
   border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(200,168,78,0.08);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(200,168,78,0.08);
 }
 
 .friends-top-bar {
@@ -1766,13 +1777,13 @@ body::after {
    AUTH MODAL
    ═══════════════════════════════════════════ */
 .auth-modal-content {
-  background: linear-gradient(180deg, var(--surface), var(--bg-deep));
-  border: 4px double var(--gold-primary);
+  background: rgba(8, 10, 14, 0.88);
+  border: 1px solid #3a3020;
   border-radius: 8px;
   padding: 30px 25px;
   width: 90%;
   max-width: 380px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 25px rgba(200,168,78,0.1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(200,168,78,0.08);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1790,8 +1801,8 @@ body::after {
   display: flex;
   flex-direction: column;
   padding: 8px 12px;
-  background: linear-gradient(135deg, #1a1428, #161224);
-  border: 2px solid var(--stone-border);
+  background: rgba(12, 14, 10, 0.9);
+  border: 1px solid #2e3020;
   border-radius: 10px 10px 10px 2px;
   margin-bottom: 8px;
   max-width: 80%;
@@ -1803,10 +1814,10 @@ body::after {
 
 .chat-msg.self {
   align-self: flex-end;
-  background: linear-gradient(135deg, #2a2038, #221830);
-  border-color: var(--gold-dark);
+  background: rgba(12, 14, 10, 0.9);
+  border: 1px solid #2e3020;
   border-radius: 10px 10px 2px 10px;
-  box-shadow: 0 3px 6px rgba(200,168,78,0.08);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
 }
 
 .chat-msg.system {
@@ -2528,4 +2539,39 @@ input[type="range"]::-moz-range-thumb {
 .stat-value {
   color: var(--gold-bright);
   text-shadow: 0 0 4px rgba(200,168,78,0.2);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0f0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3420;
+  border-radius: 4px;
+  border: 1px solid #0d0f0a;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c49a3c;
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3420 #0d0f0a;
+}
+
+/* Special Auth Logout Override */
+#btn-auth-logout {
+  background: #3a0e08 !important;
+  border: 1px solid #8a2010 !important;
+  color: #e06040 !important;
+  text-shadow: 1px 1px 0px #000;
+  box-shadow: none !important;
+}
+#btn-auth-logout:hover {
+  box-shadow: 0 0 10px rgba(138, 32, 16, 0.45) !important;
 }
