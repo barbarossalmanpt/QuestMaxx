@@ -74,6 +74,10 @@ let unsubscribeTavern = null;
 let unsubscribeTavernChat = null;
 let unsubscribeTavernLeaderboard = null;
 
+// --- Co-op Lobbies State ---
+let lobbySubscriptions = {};
+let lobbyCache = {};
+
 // --- Initialize user document structure in Firestore ---
 async function initializeUserDocument(user, customData = {}) {
   const docRef = doc(db, 'users', user.uid);
@@ -680,8 +684,53 @@ function updateProfileUI() {
   }
 }
 
+// --- Co-op Lobby Real-Time Syncing ---
+function syncLobbyListeners() {
+  if (!currentUser) {
+    Object.values(lobbySubscriptions).forEach(unsub => {
+      try { unsub(); } catch(e) {}
+    });
+    lobbySubscriptions = {};
+    lobbyCache = {};
+    return;
+  }
+
+  const activeLobbyIds = activeQuests
+    .filter(q => q.lobbyId)
+    .map(q => q.lobbyId);
+
+  Object.keys(lobbySubscriptions).forEach(lobbyId => {
+    if (!activeLobbyIds.includes(lobbyId)) {
+      try {
+        lobbySubscriptions[lobbyId]();
+      } catch (e) {
+        console.error("Unsubscribe failed:", e);
+      }
+      delete lobbySubscriptions[lobbyId];
+      delete lobbyCache[lobbyId];
+    }
+  });
+
+  activeLobbyIds.forEach(lobbyId => {
+    if (!lobbySubscriptions[lobbyId]) {
+      lobbySubscriptions[lobbyId] = onSnapshot(doc(db, 'lobbies', lobbyId), (snap) => {
+        if (!snap.exists()) {
+          delete lobbyCache[lobbyId];
+          updateActiveQuestsUI();
+          return;
+        }
+        
+        lobbyCache[lobbyId] = snap.data();
+        updateActiveQuestsUI();
+      });
+    }
+  });
+}
+
 // --- Active/Pending Quests UI rendering ---
 function updateActiveQuestsUI() {
+  syncLobbyListeners();
+  
   const container = document.getElementById('active-quests-list');
   if (!container) return;
 
@@ -696,21 +745,81 @@ function updateActiveQuestsUI() {
     card.className = 'active-quest-card clickable';
     card.style.cursor = 'pointer';
     
+    // Resolve co-op participants from cache
+    let myStatus = 'ready';
+    let partnersReady = false;
+    let partnerCompletedText = '';
+    let hasCoop = false;
+    
+    let activeCoopMembers = [];
+    if (q.lobbyId && lobbyCache[q.lobbyId]) {
+      const lobbyData = lobbyCache[q.lobbyId];
+      activeCoopMembers = lobbyData.members || [];
+      hasCoop = activeCoopMembers.length > 1;
+    } else {
+      const readyFriends = (q.coopFriends || []).filter(f => f.status === 'ready' || f.status === 'completed');
+      hasCoop = readyFriends.length > 0;
+      activeCoopMembers = [
+        { uid: currentUser.uid, name: characterState.nickname, avatarType: characterState.avatarType, avatarClass: characterState.avatarClass, avatarData: characterState.avatarData, status: 'ready' },
+        ...readyFriends.map(f => ({ uid: f.uid, name: f.name, avatarType: f.avatarType, avatarClass: f.avatarClass, avatarData: f.avatarData, status: f.status }))
+      ];
+    }
+    
+    const myMember = activeCoopMembers.find(m => m.uid === currentUser.uid);
+    if (myMember) myStatus = myMember.status || 'ready';
+    
+    const partners = activeCoopMembers.filter(m => m.uid !== currentUser.uid);
+    partnersReady = partners.some(p => p.status === 'ready' || p.status === 'pending');
+    
+    const completedPartners = partners.filter(p => p.status === 'completed');
+    if (completedPartners.length > 0) {
+      partnerCompletedText = `<div style="font-size: 0.65rem; color: var(--emerald); font-family: var(--font-title); margin-top: 4px;">🤝 PARTNER COMPLETED!</div>`;
+    }
+
     let coOpAvatarsHtml = '';
-    const readyFriends = (q.coopFriends || []).filter(f => f.status === 'ready');
-    if (readyFriends.length > 0) {
+    if (partners.length > 0) {
       coOpAvatarsHtml = `<div class="active-coop-avatars" style="display:flex; gap: 4px; margin-top: 4px;">`;
-      readyFriends.forEach(f => {
+      partners.forEach(f => {
         let icon = f.avatarType === 'custom' && f.avatarData ? `<img src="${f.avatarData}" style="width:16px;height:16px;border-radius:2px;object-fit:cover;">` : (AVATAR_PRESETS[f.avatarClass] || '⚔️');
-        coOpAvatarsHtml += `<span class="coop-mini-avatar" title="${f.name}" style="font-size:10px; background:#000; padding:2px; border:1px solid var(--gold-primary); border-radius:3px; display:flex; align-items:center; justify-content:center; width:18px; height:18px;">${icon}</span>`;
+        const borderStyle = f.status === 'completed' ? 'border:1.5px solid var(--emerald); box-shadow:0 0 4px var(--emerald);' : 'border:1px solid var(--gold-primary);';
+        coOpAvatarsHtml += `<span class="coop-mini-avatar" title="${f.name} (${f.status})" style="font-size:10px; background:#000; padding:2px; ${borderStyle} border-radius:3px; display:flex; align-items:center; justify-content:center; width:18px; height:18px;">${icon}</span>`;
       });
       coOpAvatarsHtml += `</div>`;
     }
 
     const baseReward = getQuestXPReward(q);
-    const hasCoop = readyFriends.length > 0;
     const finalReward = hasCoop ? Math.round(baseReward * 1.25) : baseReward;
     const bonusText = hasCoop ? ' <span style="font-size:0.8rem;color:var(--emerald);">(+25% CO-OP)</span>' : '';
+
+    let actionsHtml = '';
+    let statusTextUnderReward = partnerCompletedText;
+    
+    if (q.lobbyId) {
+      if (myStatus === 'completed') {
+        if (partnersReady) {
+          statusTextUnderReward = `<div style="font-size: 0.65rem; color: #f1c40f; font-family: var(--font-title); margin-top: 4px;">⌛ WAITING FOR PARTNER</div>`;
+          actionsHtml = `
+            <button class="active-action-btn btn-abandon-active" data-id="${q.id}" title="Abandon Quest">✕</button>
+          `;
+        } else {
+          statusTextUnderReward = `<div style="font-size: 0.65rem; color: var(--emerald); font-family: var(--font-title); margin-top: 4px;">🎉 QUEST COMPLETE!</div>`;
+          actionsHtml = `
+            <button class="stone-button success-btn btn-complete-active" data-id="${q.id}" style="padding: 4px 8px; font-size: 0.6rem; font-family: var(--font-title);">CLAIM</button>
+            <button class="active-action-btn btn-abandon-active" data-id="${q.id}" title="Abandon Quest">✕</button>
+          `;
+        }
+      } else {
+        actionsHtml = `
+          <button class="active-action-btn btn-complete-active" data-id="${q.id}" title="Complete Quest">✓</button>
+          <button class="active-action-btn btn-abandon-active" data-id="${q.id}" title="Abandon Quest">✕</button>
+        `;
+      }
+    } else {
+      actionsHtml = `
+        <button class="active-action-btn btn-complete-active" data-id="${q.id}" title="Complete Quest">✓</button>
+        <button class="active-action-btn btn-abandon-active" data-id="${q.id}" title="Abandon Quest">✕</button>
+      `;
+    }
 
     card.innerHTML = `
       <div class="active-quest-info">
@@ -718,12 +827,12 @@ function updateActiveQuestsUI() {
         <div class="active-quest-text">
           <span class="active-quest-title-text">${q.title}</span>
           <span class="active-quest-reward-text">+${finalReward} XP${bonusText}</span>
+          ${statusTextUnderReward}
           ${coOpAvatarsHtml}
         </div>
       </div>
-      <div class="active-quest-actions">
-        <button class="active-action-btn btn-complete-active" data-id="${q.id}" title="Complete Quest">✓</button>
-        <button class="active-action-btn btn-abandon-active" data-id="${q.id}" title="Abandon Quest">✕</button>
+      <div class="active-quest-actions" style="display: flex; align-items: center; gap: 5px;">
+        ${actionsHtml}
       </div>
     `;
     
@@ -751,16 +860,76 @@ function updateActiveQuestsUI() {
 }
 
 // --- Complete Quest Action ---
-function completeQuest(questId) {
+async function completeQuest(questId) {
   const questIndex = activeQuests.findIndex(q => q.id === questId);
   if (questIndex === -1) return;
 
   const quest = activeQuests[questIndex];
+
+  // If it's a co-op quest, check if we need to wait for partner
+  if (quest.lobbyId) {
+    const lobbyData = lobbyCache[quest.lobbyId];
+    if (lobbyData) {
+      const members = lobbyData.members || [];
+      const myMember = members.find(m => m.uid === currentUser.uid);
+      const myStatus = myMember ? (myMember.status || 'ready') : 'ready';
+
+      if (myStatus === 'ready') {
+        const lobbyRef = doc(db, 'lobbies', quest.lobbyId);
+        try {
+          const updatedMembers = members.map(m => m.uid === currentUser.uid ? { ...m, status: 'completed' } : m);
+          await updateDoc(lobbyRef, { members: updatedMembers });
+          
+          const allCompleted = updatedMembers.every(m => m.status === 'completed');
+          if (allCompleted) {
+            alert("Quest progress submitted! You and your partner have both finished the quest. Click CLAIM to get your rewards!");
+          } else {
+            alert("Quest progress submitted! Waiting for your co-op partner to also complete the quest.");
+          }
+        } catch (e) {
+          console.error("Failed to update co-op completion status:", e);
+          alert("Failed to submit quest progress: " + e.message);
+        }
+        return; // Return early, do not award XP or remove yet
+      }
+    }
+  }
+
   const baseReward = getQuestXPReward(quest);
-  const readyFriends = (quest.coopFriends || []).filter(f => f.status === 'ready');
-  const multiplier = readyFriends.length > 0 ? 1.25 : 1.0;
+  let hasCoop = false;
+  if (quest.lobbyId && lobbyCache[quest.lobbyId]) {
+    const lobbyData = lobbyCache[quest.lobbyId];
+    const members = lobbyData.members || [];
+    hasCoop = members.length > 1;
+  } else {
+    const readyFriends = (quest.coopFriends || []).filter(f => f.status === 'ready' || f.status === 'completed');
+    hasCoop = readyFriends.length > 0;
+  }
+  const multiplier = hasCoop ? 1.25 : 1.0;
   const xpReward = Math.round(baseReward * multiplier);
   
+  // Clean up co-op lobby if claiming
+  if (quest.lobbyId) {
+    const lobbyRef = doc(db, 'lobbies', quest.lobbyId);
+    try {
+      const lobbySnap = await getDoc(lobbyRef);
+      if (lobbySnap.exists()) {
+        const lobbyData = lobbySnap.data();
+        const members = lobbyData.members || [];
+        const updatedMembers = members.filter(m => m.uid !== currentUser.uid);
+        if (updatedMembers.length === 0) {
+          await deleteDoc(lobbyRef);
+        } else {
+          await updateDoc(lobbyRef, {
+            members: updatedMembers
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to clean up co-op lobby doc:", e);
+    }
+  }
+
   // Update state
   completedQuests.push({
     questId: quest.id,
@@ -827,10 +996,8 @@ function completeQuest(questId) {
     playSound('success');
   }
 
-  // Show fellowship bonus toast notification if applicable
-  if (readyFriends.length > 0) {
-    const friendNames = readyFriends.map(f => f.name).join(', ');
-    alert(`Fellowship Buff Applied! You and ${friendNames} completed the quest together. +25% Co-op XP bonus applied!`);
+  if (hasCoop) {
+    alert(`Fellowship Buff Applied! You completed the quest in co-op. +25% Co-op XP bonus applied!`);
   }
 
   saveToLocalStorage();
@@ -2910,9 +3077,10 @@ function updateNotificationsUI() {
       item.style.alignItems = 'flex-start';
 
       if (n.type === 'friend_request') {
+        const dispName = n.senderName ? `${n.senderName} (${n.senderCode})` : n.senderCode;
         item.innerHTML = `
           <div style="display: flex; justify-content: space-between; width: 100%;">
-            <span class="friend-name" style="font-size: 0.9rem;">⚔️ Request from ${n.senderCode}</span>
+            <span class="friend-name" style="font-size: 0.9rem;">⚔️ Request from ${dispName}</span>
             <span style="font-size: 0.7rem; color: var(--text-dim);">Just now</span>
           </div>
           <div style="display: flex; gap: 10px; margin-top: 10px; width: 100%;">
@@ -3242,6 +3410,7 @@ document.addEventListener('DOMContentLoaded', () => {
         type: 'friend_request',
         senderCode: friendCode,
         senderUid: currentUser.uid,
+        senderName: characterState.nickname,
         timestamp: Date.now(),
         read: false
       });
@@ -3255,13 +3424,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  function triggerToastBanner(senderCode, type = 'friend_request', questTitle = '') {
+  function triggerToastBanner(senderCode, type = 'friend_request', questTitle = '', senderName = '') {
     const banner = document.getElementById('friend-request-banner');
     if (!banner) return;
     
     const textEl = banner.querySelector('.banner-text');
     if (type === 'friend_request') {
-      textEl.innerHTML = `⚔️ New request from <span id="banner-sender-code">${senderCode}</span>!`;
+      const dispName = senderName ? `${senderName} (${senderCode})` : senderCode;
+      textEl.innerHTML = `⚔️ New request from <span id="banner-sender-code">${dispName}</span>!`;
     } else if (type === 'coop_invite') {
       textEl.innerHTML = `🛡️ Co-op Invite from <span id="banner-sender-code">${senderCode}</span>!<br><span style="font-size:0.9rem; color:var(--gold-bright);">${questTitle}</span>`;
     }
@@ -3298,11 +3468,12 @@ document.addEventListener('DOMContentLoaded', () => {
       await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
         type: 'friend_request',
         senderCode: randCode,
+        senderName: 'MOCK_SENDER',
         timestamp: Date.now(),
         read: false
       });
       playSound('notification');
-      triggerToastBanner(randCode);
+      triggerToastBanner(randCode, 'friend_request', '', 'MOCK_SENDER');
     } catch (err) {
       console.warn("Firestore write failed for simulation, falling back to local simulation:", err);
       const mockId = 'mock_' + Math.random().toString(36).substring(2, 6);
@@ -3310,11 +3481,12 @@ document.addEventListener('DOMContentLoaded', () => {
         id: mockId,
         type: 'friend_request',
         senderCode: randCode,
+        senderName: 'MOCK_SENDER',
         timestamp: Date.now(),
         read: false
       });
       playSound('notification');
-      triggerToastBanner(randCode);
+      triggerToastBanner(randCode, 'friend_request', '', 'MOCK_SENDER');
       updateNotificationsUI();
     }
   });
@@ -3494,6 +3666,7 @@ document.addEventListener('DOMContentLoaded', () => {
           type: 'friend_request',
           senderCode: friendCode,
           senderUid: currentUser.uid,
+          senderName: characterState.nickname,
           timestamp: Date.now(),
           read: false
         });
@@ -3843,7 +4016,7 @@ document.addEventListener('DOMContentLoaded', () => {
               if (age < 60000) {
                 playSound('notification');
                 if (data.type === 'friend_request') {
-                  triggerToastBanner(data.senderCode, 'friend_request');
+                  triggerToastBanner(data.senderCode, 'friend_request', '', data.senderName);
                 } else if (data.type === 'coop_invite') {
                   triggerToastBanner(data.senderCode, 'coop_invite', data.questTitle);
                 }
