@@ -265,7 +265,7 @@ body::after {
   flex-direction: column;
   align-items: center;
 }
-#view-tavern-none, #view-home, #view-wizard {
+#view-tavern-none, #view-home, #view-wizard, #view-board, #view-results {
   height: auto !important;
   min-height: 100%;
 }
