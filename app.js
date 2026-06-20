@@ -797,6 +797,68 @@ function syncLobbyListeners() {
 }
 
 // --- Active/Pending Quests UI rendering ---
+let currentProofPhotoData = null;
+
+function openProofUploadModal(questId) {
+  const quest = activeQuests.find(q => q.id === questId);
+  if (!quest) return;
+  
+  playSound('modalOpen');
+  currentProofPhotoData = null;
+  
+  const modal = document.getElementById('modal-proof-upload');
+  const titleEl = document.getElementById('proof-quest-title');
+  const fileInput = document.getElementById('proof-file-input');
+  const previewContainer = document.getElementById('proof-image-preview-container');
+  const previewImg = document.getElementById('proof-image-preview');
+  
+  titleEl.textContent = quest.title.toUpperCase();
+  fileInput.value = '';
+  previewImg.src = '';
+  previewContainer.classList.add('hidden');
+  
+  modal.classList.add('visible');
+  
+  // Clean listeners by replacing elements or cloning
+  const submitBtn = document.getElementById('btn-proof-submit');
+  const cancelBtn = document.getElementById('btn-proof-cancel');
+  
+  // Clone to remove previous listeners cleanly
+  const newSubmitBtn = submitBtn.cloneNode(true);
+  submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+  
+  const newFileInput = fileInput.cloneNode(true);
+  fileInput.parentNode.replaceChild(newFileInput, fileInput);
+  
+  newFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      resizeImage(file, 350, 350, (base64) => {
+        currentProofPhotoData = base64;
+        previewImg.src = base64;
+        previewContainer.classList.remove('hidden');
+      });
+    }
+  });
+  
+  newSubmitBtn.addEventListener('click', async () => {
+    if (!currentProofPhotoData) {
+      alert("Please take a photo or upload an image proof to complete the quest!");
+      return;
+    }
+    modal.classList.remove('visible');
+    await completeQuest(questId, currentProofPhotoData);
+  });
+  
+  newCancelBtn.addEventListener('click', () => {
+    playSound('click');
+    modal.classList.remove('visible');
+  });
+}
+
+// --- Active/Pending Quests UI rendering ---
 function updateActiveQuestsUI() {
   syncLobbyListeners();
   
@@ -913,7 +975,14 @@ function updateActiveQuestsUI() {
     // Wire complete action
     card.querySelector('.btn-complete-active').addEventListener('click', (e) => {
       e.stopPropagation();
-      completeQuest(q.id);
+      if (q.lobbyId && myStatus === 'completed') {
+        const lobbyData = lobbyCache[q.lobbyId];
+        const myMember = lobbyData ? (lobbyData.members || []).find(m => m.uid === currentUser.uid) : null;
+        const savedProof = myMember ? myMember.proofPhoto : null;
+        completeQuest(q.id, savedProof);
+      } else {
+        openProofUploadModal(q.id);
+      }
     });
 
     // Wire abandon action
@@ -929,7 +998,7 @@ function updateActiveQuestsUI() {
 }
 
 // --- Complete Quest Action ---
-async function completeQuest(questId) {
+async function completeQuest(questId, proofPhoto = null) {
   const questIndex = activeQuests.findIndex(q => q.id === questId);
   if (questIndex === -1) return;
 
@@ -946,7 +1015,7 @@ async function completeQuest(questId) {
       if (myStatus === 'ready') {
         const lobbyRef = doc(db, 'lobbies', quest.lobbyId);
         try {
-          const updatedMembers = members.map(m => m.uid === currentUser.uid ? { ...m, status: 'completed' } : m);
+          const updatedMembers = members.map(m => m.uid === currentUser.uid ? { ...m, status: 'completed', proofPhoto: proofPhoto } : m);
           await updateDoc(lobbyRef, { members: updatedMembers });
           
           const allCompleted = updatedMembers.every(m => m.status === 'completed');
@@ -1004,7 +1073,8 @@ async function completeQuest(questId) {
     questId: quest.id,
     title: quest.title,
     xpEarned: xpReward,
-    completedAt: new Date().toISOString()
+    completedAt: new Date().toISOString(),
+    proofPhoto: proofPhoto
   });
 
   activeQuests.splice(questIndex, 1);
@@ -1032,12 +1102,6 @@ async function completeQuest(questId) {
             xpEarned: xpReward,
             playerName: characterState.nickname
           },
-          timestamp: Date.now()
-        });
-      } else {
-        addDoc(collection(db, 'taverns', characterState.tavernId, 'chat'), {
-          text: `🛡️ ${characterState.nickname} completed the quest "${quest.title}" (+${xpReward} XP)!`,
-          type: 'system',
           timestamp: Date.now()
         });
       }
@@ -1291,7 +1355,13 @@ function showFriendProfile(friend) {
     level: cachedData ? (cachedData.level || friend.level) : friend.level,
     xp: cachedData ? (cachedData.xp || friend.xp) : friend.xp,
     deeds: (cachedData && cachedData.completedQuests && cachedData.completedQuests.length > 0) ? 
-      cachedData.completedQuests.map(q => ({ title: q.title, xpEarned: q.xpEarned })) : 
+      cachedData.completedQuests.map(q => ({ 
+        title: q.title, 
+        xpEarned: q.xpEarned, 
+        questId: q.questId || '', 
+        completedAt: q.completedAt || '', 
+        proofPhoto: q.proofPhoto || null 
+      })) : 
       friend.deeds
   };
   
@@ -1374,13 +1444,148 @@ function showFriendProfile(friend) {
 
   const deedsList = document.getElementById('friend-deeds-list');
   deedsList.innerHTML = '';
+  
+  const isTavernLeader = activeTavern && (
+    activeTavern.ownerUid === currentUser.uid || 
+    (activeTavern.coLeaders && activeTavern.coLeaders.includes(currentUser.uid))
+  );
+  const isViewingOther = resolvedFriend.uid && resolvedFriend.uid !== currentUser.uid;
+  const canAudit = isTavernLeader && isViewingOther;
+
   resolvedFriend.deeds.forEach(d => {
     const entry = document.createElement('div');
     entry.className = 'ledger-entry';
-    entry.innerHTML = `
-      <span class="ledger-entry-title">${d.title}</span>
-      <span class="ledger-entry-xp">+${d.xpEarned} XP</span>
-    `;
+    
+    // Main text content
+    const infoSpan = document.createElement('span');
+    infoSpan.className = 'ledger-entry-title';
+    infoSpan.textContent = d.title;
+    entry.appendChild(infoSpan);
+    
+    // Right section with XP and buttons
+    const rightDiv = document.createElement('div');
+    rightDiv.style.display = 'flex';
+    rightDiv.style.alignItems = 'center';
+    rightDiv.style.gap = '6px';
+    
+    const xpSpan = document.createElement('span');
+    xpSpan.className = 'ledger-entry-xp';
+    xpSpan.textContent = `+${d.xpEarned} XP`;
+    rightDiv.appendChild(xpSpan);
+    
+    // Render proof photo preview button if available
+    if (d.proofPhoto) {
+      const photoBtn = document.createElement('button');
+      photoBtn.className = 'stone-button';
+      photoBtn.style.padding = '2px 6px';
+      photoBtn.style.fontSize = '0.7rem';
+      photoBtn.style.margin = '0';
+      photoBtn.style.fontFamily = 'var(--font-title)';
+      photoBtn.title = 'View Photo Proof';
+      photoBtn.textContent = '📷';
+      photoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        const previewImg = document.getElementById('proof-preview-image');
+        previewImg.src = d.proofPhoto;
+        document.getElementById('modal-proof-preview').classList.add('visible');
+      });
+      rightDiv.appendChild(photoBtn);
+    }
+    
+    // Render Invalidate action for Leaders / Co-leaders
+    if (canAudit) {
+      const invalidateBtn = document.createElement('button');
+      invalidateBtn.className = 'stone-button';
+      invalidateBtn.style.borderColor = 'var(--danger-bright)';
+      invalidateBtn.style.color = 'var(--danger-bright)';
+      invalidateBtn.style.padding = '2px 6px';
+      invalidateBtn.style.fontSize = '0.7rem';
+      invalidateBtn.style.margin = '0';
+      invalidateBtn.style.fontFamily = 'var(--font-title)';
+      invalidateBtn.title = 'Invalidate Quest Completion';
+      invalidateBtn.textContent = '✕';
+      invalidateBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (confirm(`Are you sure you want to invalidate the completion of "${d.title}" for ${resolvedFriend.name}? This will deduct XP and adjust their level.`)) {
+          try {
+            const targetUserRef = doc(db, 'users', resolvedFriend.uid);
+            const targetUserSnap = await getDoc(targetUserRef);
+            if (targetUserSnap.exists()) {
+              const targetUserData = targetUserSnap.data();
+              const currentCompleted = targetUserData.completedQuests || [];
+              
+              // Filter out this quest completion
+              const updatedCompleted = currentCompleted.filter(q => !(q.questId === d.questId && q.completedAt === d.completedAt));
+              
+              // Recalculate XP and level
+              let totalXP = 0;
+              updatedCompleted.forEach(q => {
+                totalXP += q.xpEarned;
+              });
+              let newLevel = 1;
+              let newXP = totalXP;
+              while (newXP >= getXPForLevel(newLevel)) {
+                newXP -= getXPForLevel(newLevel);
+                newLevel++;
+              }
+              
+              // Update target user document
+              await updateDoc(targetUserRef, {
+                completedQuests: updatedCompleted,
+                xp: newXP,
+                level: newLevel
+              });
+              
+              playSound('success');
+              alert(`Successfully invalidated completion for "${d.title}"!`);
+              
+              // Update friend details cache
+              friendDataCache[resolvedFriend.uid] = {
+                ...targetUserData,
+                completedQuests: updatedCompleted,
+                xp: newXP,
+                level: newLevel
+              };
+              
+              // Re-render friend profile UI
+              showFriendProfile(resolvedFriend);
+              
+              // Open admin action prompt modal suggesting to kick
+              const promptModal = document.getElementById('modal-admin-action-prompt');
+              const promptText = document.getElementById('admin-prompt-text');
+              promptText.textContent = `Quest completed proof removed. Would you like to kick ${resolvedFriend.name} from the tavern?`;
+              promptModal.classList.add('visible');
+              
+              const btnKick = document.getElementById('btn-admin-prompt-kick');
+              const btnDismiss = document.getElementById('btn-admin-prompt-dismiss');
+              
+              const newBtnKick = btnKick.cloneNode(true);
+              btnKick.parentNode.replaceChild(newBtnKick, btnKick);
+              const newBtnDismiss = btnDismiss.cloneNode(true);
+              btnDismiss.parentNode.replaceChild(newBtnDismiss, btnDismiss);
+              
+              newBtnKick.addEventListener('click', async () => {
+                promptModal.classList.remove('visible');
+                document.getElementById('friend-profile-modal').classList.remove('visible');
+                await kickTavernMember(resolvedFriend.uid, resolvedFriend.name);
+              });
+              
+              newBtnDismiss.addEventListener('click', () => {
+                playSound('click');
+                promptModal.classList.remove('visible');
+              });
+            }
+          } catch (err) {
+            console.error("Error invalidating quest completion:", err);
+            alert("Failed to invalidate quest completion: " + err.message);
+          }
+        }
+      });
+      rightDiv.appendChild(invalidateBtn);
+    }
+    
+    entry.appendChild(rightDiv);
     deedsList.appendChild(entry);
   });
   
@@ -3720,6 +3925,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (friendProfileSourceView === 'notifications') {
       document.getElementById('notifications-modal').classList.add('visible');
     }
+  });
+  document.getElementById('btn-proof-preview-close').addEventListener('click', () => {
+    playSound('click');
+    document.getElementById('modal-proof-preview').classList.remove('visible');
   });
 
   const addFriendBtn = document.getElementById('btn-add-friend');

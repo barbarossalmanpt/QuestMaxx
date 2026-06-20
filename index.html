@@ -76,6 +76,54 @@
     </div>
   </div>
 
+  <!-- Proof Upload Modal -->
+  <div id="modal-proof-upload" class="choice-overlay" style="z-index: 240;">
+    <div class="choice-modal friends-modal-content">
+      <h2 class="choice-modal-title">UPLOAD PROOF</h2>
+      <p id="proof-quest-title" style="font-family: var(--font-title); font-size: 0.7rem; color: var(--gold-bright); text-align: center; margin-top:-10px;"></p>
+      
+      <div style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 15px 0;">
+        <label for="proof-file-input" class="stone-button" style="display: block; width: 100%; text-align: center; font-size: 0.75rem; padding: 12px 0;">
+          📷 TAKE PHOTO / UPLOAD
+        </label>
+        <input type="file" id="proof-file-input" accept="image/*">
+        
+        <!-- Image Preview Container -->
+        <div id="proof-image-preview-container" class="hidden" style="width: 100%; max-height: 180px; overflow: hidden; border: 2px solid var(--stone-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; background: #000;">
+          <img id="proof-image-preview" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px; width: 100%;">
+        <button id="btn-proof-submit" class="stone-button success-btn" style="flex: 1; padding: 10px 0; font-size: 0.75rem;">SUBMIT ✓</button>
+        <button id="btn-proof-cancel" class="choice-close-btn" style="flex: 1; margin: 0; padding: 10px 0; font-size: 0.75rem;">✕ CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Proof Preview Modal -->
+  <div id="modal-proof-preview" class="choice-overlay" style="z-index: 250;">
+    <div class="choice-modal friends-modal-content">
+      <h2 class="choice-modal-title">PROOF PREVIEW</h2>
+      <div style="width: 100%; max-height: 250px; overflow: hidden; border: 2px solid var(--stone-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; background: #000; margin: 15px 0;">
+        <img id="proof-preview-image" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <button id="btn-proof-preview-close" class="choice-close-btn" style="width: 100%;">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Admin Action Prompt Modal -->
+  <div id="modal-admin-action-prompt" class="choice-overlay" style="z-index: 260;">
+    <div class="choice-modal friends-modal-content" style="max-width: 320px;">
+      <h2 class="choice-modal-title">AUDIT ACTION</h2>
+      <p id="admin-prompt-text" style="font-family: var(--font-body); font-size: 1.1rem; text-align: center; color: var(--text-main); margin: 15px 0;"></p>
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+        <button id="btn-admin-prompt-kick" class="stone-button" style="border-color: var(--danger-bright); color: var(--danger-bright); padding: 10px 0; font-size: 0.75rem;">KICK FROM TAVERN 🥾</button>
+        <button id="btn-admin-prompt-dismiss" class="choice-close-btn" style="margin: 0; padding: 10px 0; font-size: 0.75rem;">✕ JUST REMOVE QUEST</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Notifications Modal (Overlay) -->
   <div id="notifications-modal" class="choice-overlay">
     <div class="choice-modal friends-modal-content">
