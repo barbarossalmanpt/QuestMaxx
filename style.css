@@ -2080,16 +2080,22 @@ body::after {
    TAVERN PANEL & CHAT LAYOUT
    ═══════════════════════════════════════════ */
 #tavern-panel {
-  overflow-y: hidden !important;
+  overflow-y: auto !important;
   padding-bottom: 20px;
+}
+#tavern-panel.chat-active {
+  overflow-y: hidden !important;
 }
 
 #view-tavern-hub {
-  height: calc(100vh - 120px) !important;
+  height: auto !important;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   width: 100%;
+}
+#view-tavern-hub.chat-active {
+  height: calc(100vh - 120px) !important;
 }
 
 #tavern-hub-home-content {

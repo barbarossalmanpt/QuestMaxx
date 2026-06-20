@@ -1,6 +1,6 @@
 import { QUESTS } from './quests.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, getDocs, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, query, where, deleteDoc, addDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // --- Global State ---
@@ -4048,11 +4048,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const errMsgEl = document.getElementById('auth-error-msg');
     try {
       errMsgEl.classList.add('hidden');
-      await signInWithPopup(auth, provider);
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        await signInWithPopup(auth, provider);
+      }
     } catch (err) {
-      console.error("Google sign in failed:", err);
-      errMsgEl.textContent = err.message;
-      errMsgEl.classList.remove('hidden');
+      console.error("Google sign in failed, trying redirect:", err);
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch (redirectErr) {
+        errMsgEl.textContent = redirectErr.message;
+        errMsgEl.classList.remove('hidden');
+      }
     }
   });
 
@@ -4479,6 +4488,11 @@ document.addEventListener('DOMContentLoaded', () => {
       tabChat.classList.remove('active');
       homeContent.classList.remove('hidden');
       chatContent.classList.add('hidden');
+      
+      const tavernPanel = document.getElementById('tavern-panel');
+      const tavernHub = document.getElementById('view-tavern-hub');
+      if (tavernPanel) tavernPanel.classList.remove('chat-active');
+      if (tavernHub) tavernHub.classList.remove('chat-active');
     });
 
     tabChat.addEventListener('click', () => {
@@ -4487,6 +4501,11 @@ document.addEventListener('DOMContentLoaded', () => {
       tabHome.classList.remove('active');
       chatContent.classList.remove('hidden');
       homeContent.classList.add('hidden');
+      
+      const tavernPanel = document.getElementById('tavern-panel');
+      const tavernHub = document.getElementById('view-tavern-hub');
+      if (tavernPanel) tavernPanel.classList.add('chat-active');
+      if (tavernHub) tavernHub.classList.add('chat-active');
       
       const chatFeed = document.getElementById('tavern-chat-feed');
       if (chatFeed) {
