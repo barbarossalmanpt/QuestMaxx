@@ -84,9 +84,9 @@
       
       <div style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 15px 0;">
         <label for="proof-file-input" class="stone-button" style="display: block; width: 100%; text-align: center; font-size: 0.75rem; padding: 12px 0;">
-          📷 TAKE PHOTO / UPLOAD
+          📷 SNAP LIVE PHOTO
         </label>
-        <input type="file" id="proof-file-input" accept="image/*">
+        <input type="file" id="proof-file-input" accept="image/*" capture="environment" style="display: none;">
         
         <!-- Image Preview Container -->
         <div id="proof-image-preview-container" class="hidden" style="width: 100%; max-height: 180px; overflow: hidden; border: 2px solid var(--stone-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; background: #000;">
