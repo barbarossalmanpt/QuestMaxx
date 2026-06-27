@@ -882,6 +882,8 @@ function updateActiveQuestsUI() {
     let partnerCompletedText = '';
     let hasCoop = false;
     
+    const currentUid = currentUser ? currentUser.uid : 'GUEST';
+    
     let activeCoopMembers = [];
     if (q.lobbyId && lobbyCache[q.lobbyId]) {
       const lobbyData = lobbyCache[q.lobbyId];
@@ -891,15 +893,15 @@ function updateActiveQuestsUI() {
       const readyFriends = (q.coopFriends || []).filter(f => f.status === 'ready' || f.status === 'completed');
       hasCoop = readyFriends.length > 0;
       activeCoopMembers = [
-        { uid: currentUser.uid, name: characterState.nickname, avatarType: characterState.avatarType, avatarClass: characterState.avatarClass, avatarData: characterState.avatarData, status: 'ready' },
+        { uid: currentUid, name: characterState.nickname, avatarType: characterState.avatarType, avatarClass: characterState.avatarClass, avatarData: characterState.avatarData, status: 'ready' },
         ...readyFriends.map(f => ({ uid: f.uid, name: f.name, avatarType: f.avatarType, avatarClass: f.avatarClass, avatarData: f.avatarData, status: f.status }))
       ];
     }
     
-    const myMember = activeCoopMembers.find(m => m.uid === currentUser.uid);
+    const myMember = activeCoopMembers.find(m => m.uid === currentUid);
     if (myMember) myStatus = myMember.status || 'ready';
     
-    const partners = activeCoopMembers.filter(m => m.uid !== currentUser.uid);
+    const partners = activeCoopMembers.filter(m => m.uid !== currentUid);
     partnersReady = partners.some(p => p.status === 'ready' || p.status === 'pending');
     
     const completedPartners = partners.filter(p => p.status === 'completed');
@@ -977,7 +979,7 @@ function updateActiveQuestsUI() {
       e.stopPropagation();
       if (q.lobbyId && myStatus === 'completed') {
         const lobbyData = lobbyCache[q.lobbyId];
-        const myMember = lobbyData ? (lobbyData.members || []).find(m => m.uid === currentUser.uid) : null;
+        const myMember = lobbyData ? (lobbyData.members || []).find(m => m.uid === currentUid) : null;
         const savedProof = myMember ? myMember.proofPhoto : null;
         completeQuest(q.id, savedProof);
       } else {
